@@ -97,3 +97,17 @@ def test_deduplicate_keeps_one_per_location_and_rule():
         finding("F-004", 20, "sqli"),
     ])
     assert [f.id for f in unique] == ["F-001", "F-003", "F-004"]
+
+
+def test_vendored_directories_are_not_scanned(tmp_path):
+    """Disabling Semgrep's ignore files also drops .gitignore, so the skip list has
+    to be passed explicitly -- otherwise a scan walks .venv and node_modules."""
+    vulnerable = 'def f(name):\n    cursor.execute("SELECT * FROM t WHERE n = " + name)\n'
+    (tmp_path / "app.py").write_text(vulnerable)
+    for vendored in (".venv", "node_modules"):
+        (tmp_path / vendored).mkdir()
+        (tmp_path / vendored / "dep.py").write_text(vulnerable)
+
+    findings = parse_semgrep(scan(tmp_path, Settings().semgrep_rules), tmp_path)
+
+    assert [f.file for f in findings] == ["app.py"]

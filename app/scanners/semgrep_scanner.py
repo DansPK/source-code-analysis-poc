@@ -10,6 +10,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from app.repository.file_filter import SKIP_DIRS
 from app.scanners import ScannerError
 from app.utils.logging import get_logger
 
@@ -35,6 +36,9 @@ def scan(root: Path, rules: str) -> dict:
         # list that excludes tests/. We are scanning whatever the user pointed at,
         # so both defaults have to go or findings silently disappear.
         "--no-git-ignore", "--x-ignore-semgrepignore-files",
+        # ...but turning those off also drops .gitignore, so Semgrep would walk
+        # .venv and node_modules. Exclude the same directories the analyzer skips.
+        *[arg for directory in sorted(SKIP_DIRS) for arg in ("--exclude", directory)],
         "--config", rules, str(root),
     ]
     logger.info("Running Semgrep on %s", root)

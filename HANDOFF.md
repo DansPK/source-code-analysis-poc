@@ -9,7 +9,7 @@ file, then stop.** Do not start the next milestone in the same session.
 
 ## Status
 
-- **Current milestone: M5 — Cross-file context investigator** (not started)
+- **Current milestone: M6 — AI analyzer and validator** (not started)
 - Last updated: 2026-09-29 by Claude Opus 5 (Claude Code)
 
 ## Done
@@ -32,15 +32,15 @@ file, then stop.** Do not start the next milestone in the same session.
 
 ## In progress
 
-Nothing mid-flight. M4 finished cleanly.
+Nothing mid-flight. M5 finished cleanly.
 
-**Next concrete step:** M5 context investigator — `context/symbol_resolver.py` (finding line →
-enclosing function, using the `Symbol` line ranges from M3), `context/call_graph.py` (callers
-and callees from `CodeMap`, capped by `Settings.max_caller_depth`/`max_callee_depth`),
-`context/cross_file.py` (walk outward to an entry point, producing the ordered `flow_chain`),
-`context/builder.py` (assemble `FindingContext`, truncating excerpts to `max_snippet_lines`).
-Target: for the fixture's one finding, `flow_chain` is `routes/search.py →
-services/search_service.py → database/user_repository.py`.
+**Next concrete step:** M6 AI analyzer — `ai/client.py` (`LLMClient` protocol with
+`complete_json()`, an OpenAI-compatible implementation, and a `MockClient` reading
+`tests/fixtures/mock_responses.json`), `ai/prompts.py` (system prompt + a renderer turning
+`FindingContext` into compact text — embed `AIAnalysis.model_json_schema()` rather than
+hand-writing the schema), `ai/analyzer.py` (one retry on bad JSON, then fall back), and
+`ai/validator.py` (may only downgrade to `Needs Manual Review`, never upgrade).
+Every test must pass with `LLM_MOCK=1` and no API key.
 
 ## Frozen contracts
 
@@ -85,6 +85,18 @@ keep this list current as consumers appear.
   is absolute. Keep it that way or reports and code-map lookups stop agreeing on paths.
 - `AIAnalysis.model_json_schema()` produces the exact §9 field list — M6 should embed that in
   the system prompt rather than hand-writing the schema, so the two can never drift.
+- **Semgrep needs the skip list passed explicitly.** Because `--no-git-ignore
+  --x-ignore-semgrepignore-files` also discards `.gitignore`, Semgrep happily scanned `.venv`
+  and reported 9 findings from site-packages. It is now given `--exclude` for every entry in
+  `file_filter.SKIP_DIRS`, which keeps the analyzer and the scanner agreeing on what is
+  project code. There is a regression test.
+- Call sites are located by searching the calling function's **source text** for the name, not
+  by a second AST pass, because the code map stores calls per file rather than per function.
+  A name in a comment or string can therefore produce a wrong caller. That costs the model a
+  little irrelevant context, never a wrong verdict, and it avoids re-parsing every file.
+- `trace_to_entry_point()` prefers a caller that is a known entry point when several files call
+  the same name. Without that, a common helper name walks the chain into whichever file sorts
+  first.
 - **Semgrep's defaults silently hide findings.** It scans only git-tracked files and applies a
   built-in ignore list that excludes `tests/`. Scanning the fixture returned *zero* results
   until `--no-git-ignore --x-ignore-semgrepignore-files` were added. The second flag is

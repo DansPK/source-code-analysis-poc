@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 
 from app.config.settings import Settings, get_settings
+from app.context.builder import build_context
 from app.findings.deduplicator import deduplicate
 from app.findings.parser import parse_semgrep
 from app.repository.analyzer import analyze
@@ -40,7 +41,11 @@ def run_scan(repo: str | None, path: str | None, settings: Settings):
     findings = deduplicate(parse_semgrep(payload, Path(repository.root)))
     logger.info("Candidate findings: %d", len(findings))
 
-    raise NotImplementedError("Pipeline stages land in M5-M7; see HANDOFF.md.")
+    contexts = [build_context(repository, code_map, f, settings) for f in findings]
+    for context in contexts:
+        logger.info("  %s: %s", context.finding.id, " -> ".join(context.flow_chain))
+
+    raise NotImplementedError("Pipeline stages land in M6-M7; see HANDOFF.md.")
 
 
 def main(argv: list[str] | None = None) -> int:
