@@ -12,9 +12,13 @@ instruction file; `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md` an
 
 The POC is built in milestones (M0–M8) and worked on by many agents across sessions. So:
 
-**Finish one milestone completely → run its verification command → update `HANDOFF.md` → stop.**
+**Finish one milestone completely → run its verification command → update `HANDOFF.md` →
+commit → stop.**
 Do not start the next milestone in the same session. Leaving a half-finished milestone with no
 note in `HANDOFF.md` is the single most expensive thing you can do to the next agent.
+
+One commit per milestone, subject line `M<n>: <what it does>` — so `git log --oneline` reads as
+the milestone history and any milestone can be reviewed or reverted on its own.
 
 ## Project state
 
