@@ -2,23 +2,23 @@
 
 `run_scan()` is the one place the pipeline is wired together. This CLI and the FastAPI
 layer in `app/api/` are both thin adapters over it -- keep it that way.
-
-The argument surface below is final; the stages inside `run_scan()` are filled in by
-later milestones (see HANDOFF.md).
 """
 
 import argparse
 import sys
 from pathlib import Path
 
-from app.config.settings import Settings, get_settings
+from app.agent.security_agent import report_item
 from app.ai import AIError
 from app.ai.analyzer import analyze as analyze_finding
 from app.ai.client import get_client
 from app.ai.validator import validate
+from app.config.settings import Settings, get_settings
 from app.context.builder import build_context
 from app.findings.deduplicator import deduplicate
 from app.findings.parser import parse_semgrep
+from app.models import ScanReport
+from app.report import reporter
 from app.repository.analyzer import analyze
 from app.scanners import ScannerError
 from app.scanners.semgrep_scanner import scan
@@ -29,39 +29,40 @@ from app.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
-def run_scan(repo: str | None, path: str | None, settings: Settings):
-    """Run the full pipeline and return a ScanReport.
-
-    Stage order follows the spec and must stay visible here: source -> repository
-    analysis -> static scan -> finding parse -> context -> AI analysis -> validation
-    -> agent -> report.
-    """
+def run_scan(repo: str | None, path: str | None, settings: Settings) -> ScanReport:
+    """Run the full pipeline. The stage order is the spec's, and stays visible here."""
     repository = load_source(repo, path, settings)
-    logger.info("Source: %s%s", repository.root, f" (from {repository.origin})" if repository.origin else "")
+    logger.info("Source: %s", repository.root)
 
     code_map = analyze(repository)
+    root = Path(repository.root)
 
-    payload = scan(Path(repository.root), settings.semgrep_rules)
-    findings = deduplicate(parse_semgrep(payload, Path(repository.root)))
+    findings = deduplicate(parse_semgrep(scan(root, settings.semgrep_rules), root))
     logger.info("Candidate findings: %d", len(findings))
 
-    contexts = [build_context(repository, code_map, f, settings) for f in findings]
-
     client = get_client(settings)
-    analyses = []
-    for context in contexts:
+    items = []
+    for number, finding in enumerate(findings, start=1):
+        context = build_context(repository, code_map, finding, settings)
         analysis = validate(analyze_finding(client, context, repository), context, repository)
-        analyses.append(analysis)
+        items.append(report_item(client, number, context, analysis))
         logger.info(
             "  %s: %s (%s severity, %s confidence)",
-            context.finding.id, analysis.status, analysis.severity, analysis.confidence,
+            items[-1].id, analysis.status, analysis.severity, analysis.confidence,
         )
 
-    raise NotImplementedError("Report engine lands in M7; see HANDOFF.md.")
+    return ScanReport(
+        repository_root=repository.root,
+        files_scanned=len(repository.files),
+        candidates_found=len(findings),
+        items=reporter.sort_items(items),
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="scan", description="AI source-code vulnerability scanner (POC).")
+    parser = argparse.ArgumentParser(
+        prog="scan", description="AI source-code vulnerability scanner (POC)."
+    )
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--repo", metavar="URL", help="Git repository URL to clone and scan")
     source.add_argument("--path", metavar="PATH", help="Local directory or file to scan")
@@ -75,13 +76,15 @@ def main(argv: list[str] | None = None) -> int:
         settings.llm_mock = True
 
     try:
-        run_scan(args.repo, args.path, settings)
+        report = run_scan(args.repo, args.path, settings)
     except (SourceError, ScannerError, AIError) as exc:
         logger.error("%s", exc)
         return 2
-    except NotImplementedError as exc:
-        logger.error("%s", exc)
-        return 1
+
+    if args.format == "json" or args.out:
+        logger.info("Wrote %s", reporter.write_json(report, args.out or "reports"))
+    if args.format == "cli":
+        print(reporter.render_cli(report))
     return 0
 
 

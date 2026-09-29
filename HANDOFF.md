@@ -9,7 +9,7 @@ file, then stop.** Do not start the next milestone in the same session.
 
 ## Status
 
-- **Current milestone: M7 — Agent and report engine** (not started)
+- **Current milestone: M8 — FastAPI layer** (not started)
 - Last updated: 2026-09-29 by Claude Opus 5 (Claude Code)
 
 ## Done
@@ -32,16 +32,14 @@ file, then stop.** Do not start the next milestone in the same session.
 
 ## In progress
 
-Nothing mid-flight. M6 finished cleanly.
+Nothing mid-flight. M7 finished cleanly, and the POC pipeline is complete.
 
-**Next concrete step:** M7 agent and report — `agent/explainer.py` and
-`agent/remediation.py` (one LLM call each, through the same client; **prose only, never a
-code edit**), `agent/security_agent.py` (returns a finished `ReportItem`),
-`report/cli_report.py` (spec §13 layout, most severe first), `report/json_report.py`
-(`ScanReport` → `reports/<timestamp>.json`), `report/reporter.py` (format dispatch), and
-`run_scan()` returning the `ScanReport`. Add the agent's canned replies to
-`tests/fixtures/mock_responses.json`. Note `ReportItem.id` is the user-facing `VULN-001`,
-separate from `Finding.id`.
+**Next concrete step:** M8 FastAPI layer — `app/api/schemas.py` (`ScanRequest` with
+`repo_url | path | mock`; reuse `ScanReport` for the response, it is already Pydantic),
+`app/api/routes.py` (`POST /scan`, `GET /health`), `app/api/server.py` (`create_app()` plus
+a `main()` for the `scan-api` script). **A thin adapter only** — it calls `run_scan()` and
+holds no pipeline logic. Use `def`, not `async def`, so FastAPI runs the blocking scan in a
+threadpool; say in the docstring that scans are synchronous and can take minutes.
 
 ## Frozen contracts
 
@@ -86,6 +84,12 @@ keep this list current as consumers appear.
   is absolute. Keep it that way or reports and code-map lookups stop agreeing on paths.
 - `AIAnalysis.model_json_schema()` produces the exact §9 field list — M6 should embed that in
   the system prompt rather than hand-writing the schema, so the two can never drift.
+- Mock replies are keyed by the prompt's `TASK:` line, then by vulnerability type
+  (`tests/fixtures/mock_responses.json`). Adding a prompt means adding a task section there,
+  or `MockClient` falls back to the analysis replies.
+- `ReportItem.id` (`VULN-001`) is the user-facing id and is assigned by the agent;
+  `Finding.id` (`F-001`) is the scanner's internal one. They are deliberately separate — after
+  deduplication the F-numbers have gaps, which would look like missing findings in a report.
 - **Configured paths resolve against the project, not the cwd** (`settings.project_path()`).
   The scanner is pointed at other people's code, so it is routinely run from elsewhere;
   `rules/semgrep`, `temp/` and the mock responses all broke when run from `/tmp` before this.

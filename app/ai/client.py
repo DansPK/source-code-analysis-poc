@@ -50,20 +50,26 @@ class OpenAICompatibleClient:
 
 
 class MockClient:
-    """Canned responses keyed by vulnerability type, so tests need no API key.
+    """Canned replies, so the whole pipeline runs with no API key.
 
-    Responses deliberately leave the file paths empty; the analyzer fills those from
-    the context, which is where the trustworthy version of that information lives.
+    Keyed by the prompt's `TASK:` line and then by vulnerability type. Analysis replies
+    deliberately leave the file paths empty; the analyzer fills those from the context,
+    which is where the trustworthy version of that information lives.
     """
 
     def __init__(self, responses_path: Path = MOCK_RESPONSES):
         self._responses = json.loads(responses_path.read_text(encoding="utf-8"))
 
     def complete_json(self, system: str, user: str) -> dict:
-        for vulnerability_type, response in self._responses.items():
+        task = next(
+            (line.split(":", 1)[1].strip() for line in user.splitlines() if line.startswith("TASK:")),
+            "analysis",
+        )
+        by_type = self._responses.get(task, self._responses["analysis"])
+        for vulnerability_type, reply in by_type.items():
             if vulnerability_type != "default" and vulnerability_type.lower() in user.lower():
-                return response
-        return self._responses["default"]
+                return reply
+        return by_type["default"]
 
 
 def get_client(settings: Settings) -> LLMClient:
