@@ -1,0 +1,35 @@
+{
+  "SQL Injection": {
+    "vulnerability_type": "SQL Injection",
+    "status": "Likely Vulnerable",
+    "severity": "High",
+    "confidence": "High",
+    "source": "an HTTP request parameter",
+    "sink": "a database execute() call",
+    "evidence": "The request value is passed through the service layer unchanged and concatenated into the SQL statement. No parameterization or escaping appears anywhere along the path.",
+    "protection_found": "None. No parameterized query, allowlist or escaping was found on the path.",
+    "impact": "An attacker could alter the query to read, modify or delete rows they are not entitled to."
+  },
+  "Command Injection": {
+    "vulnerability_type": "Command Injection",
+    "status": "Likely Vulnerable",
+    "severity": "Critical",
+    "confidence": "Medium",
+    "source": "user-controlled input",
+    "sink": "a shell command execution",
+    "evidence": "User input reaches a shell invocation without quoting or validation.",
+    "protection_found": "None found on the path.",
+    "impact": "An attacker could run arbitrary commands with the application's privileges."
+  },
+  "default": {
+    "vulnerability_type": "Unknown",
+    "status": "Needs Manual Review",
+    "severity": "Medium",
+    "confidence": "Low",
+    "source": "",
+    "sink": "",
+    "evidence": "Mock response: no canned analysis exists for this vulnerability type.",
+    "protection_found": "Not assessed.",
+    "impact": "Not assessed."
+  }
+}

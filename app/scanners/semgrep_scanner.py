@@ -10,6 +10,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from app.config.settings import project_path
 from app.repository.file_filter import SKIP_DIRS
 from app.scanners import ScannerError
 from app.utils.logging import get_logger
@@ -27,8 +28,9 @@ def _command() -> list[str]:
 
 def scan(root: Path, rules: str) -> dict:
     """Scan `root` with the rules at `rules`, returning Semgrep's parsed JSON."""
-    if not Path(rules).exists():
-        raise ScannerError(f"Semgrep rules not found: {rules}")
+    rules_path = project_path(rules)
+    if not rules_path.exists():
+        raise ScannerError(f"Semgrep rules not found: {rules_path}")
 
     command = [
         *_command(), "scan", "--json", "--quiet",
@@ -39,7 +41,7 @@ def scan(root: Path, rules: str) -> dict:
         # ...but turning those off also drops .gitignore, so Semgrep would walk
         # .venv and node_modules. Exclude the same directories the analyzer skips.
         *[arg for directory in sorted(SKIP_DIRS) for arg in ("--exclude", directory)],
-        "--config", rules, str(root),
+        "--config", str(rules_path), str(root),
     ]
     logger.info("Running Semgrep on %s", root)
 

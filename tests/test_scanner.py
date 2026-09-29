@@ -111,3 +111,10 @@ def test_vendored_directories_are_not_scanned(tmp_path):
     findings = parse_semgrep(scan(tmp_path, Settings().semgrep_rules), tmp_path)
 
     assert [f.file for f in findings] == ["app.py"]
+
+
+def test_rules_resolve_against_the_project_not_the_caller(monkeypatch, tmp_path):
+    """The scanner is pointed at other people's code, so it is routinely run from
+    somewhere else entirely; configured paths must not depend on the cwd."""
+    monkeypatch.chdir(tmp_path)
+    assert scan(SAMPLE, Settings().semgrep_rules)["results"]

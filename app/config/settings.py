@@ -1,6 +1,20 @@
 """Configuration from the environment and `.env`."""
 
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
+def project_path(value: str) -> Path:
+    """Resolve a configured path against the project, not the caller's directory.
+
+    The scanner is pointed at other people's code, so it is routinely run from
+    somewhere else entirely.
+    """
+    path = Path(value)
+    return path if path.is_absolute() else PROJECT_ROOT / path
 
 
 class Settings(BaseSettings):

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from git import GitCommandError, Repo
 
+from app.config.settings import project_path
 from app.models import Repository
 from app.source import SourceError
 
@@ -13,7 +14,7 @@ from app.source import SourceError
 def _workspace(url: str, temp_dir: str) -> Path:
     """Directory to clone into, named after the repository."""
     name = re.sub(r"[^A-Za-z0-9._-]", "_", url.rstrip("/").split("/")[-1].removesuffix(".git"))
-    return Path(temp_dir) / (name or "repo")
+    return project_path(temp_dir) / (name or "repo")
 
 
 def clone(url: str, temp_dir: str) -> Repository:

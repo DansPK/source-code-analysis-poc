@@ -9,7 +9,7 @@ file, then stop.** Do not start the next milestone in the same session.
 
 ## Status
 
-- **Current milestone: M6 — AI analyzer and validator** (not started)
+- **Current milestone: M7 — Agent and report engine** (not started)
 - Last updated: 2026-09-29 by Claude Opus 5 (Claude Code)
 
 ## Done
@@ -32,15 +32,16 @@ file, then stop.** Do not start the next milestone in the same session.
 
 ## In progress
 
-Nothing mid-flight. M5 finished cleanly.
+Nothing mid-flight. M6 finished cleanly.
 
-**Next concrete step:** M6 AI analyzer — `ai/client.py` (`LLMClient` protocol with
-`complete_json()`, an OpenAI-compatible implementation, and a `MockClient` reading
-`tests/fixtures/mock_responses.json`), `ai/prompts.py` (system prompt + a renderer turning
-`FindingContext` into compact text — embed `AIAnalysis.model_json_schema()` rather than
-hand-writing the schema), `ai/analyzer.py` (one retry on bad JSON, then fall back), and
-`ai/validator.py` (may only downgrade to `Needs Manual Review`, never upgrade).
-Every test must pass with `LLM_MOCK=1` and no API key.
+**Next concrete step:** M7 agent and report — `agent/explainer.py` and
+`agent/remediation.py` (one LLM call each, through the same client; **prose only, never a
+code edit**), `agent/security_agent.py` (returns a finished `ReportItem`),
+`report/cli_report.py` (spec §13 layout, most severe first), `report/json_report.py`
+(`ScanReport` → `reports/<timestamp>.json`), `report/reporter.py` (format dispatch), and
+`run_scan()` returning the `ScanReport`. Add the agent's canned replies to
+`tests/fixtures/mock_responses.json`. Note `ReportItem.id` is the user-facing `VULN-001`,
+separate from `Finding.id`.
 
 ## Frozen contracts
 
@@ -85,6 +86,20 @@ keep this list current as consumers appear.
   is absolute. Keep it that way or reports and code-map lookups stop agreeing on paths.
 - `AIAnalysis.model_json_schema()` produces the exact §9 field list — M6 should embed that in
   the system prompt rather than hand-writing the schema, so the two can never drift.
+- **Configured paths resolve against the project, not the cwd** (`settings.project_path()`).
+  The scanner is pointed at other people's code, so it is routinely run from elsewhere;
+  `rules/semgrep`, `temp/` and the mock responses all broke when run from `/tmp` before this.
+  There is a regression test.
+- The prompt's schema is generated from `AIAnalysis.model_fields` and `get_args()` on the
+  `Literal` enums, so it cannot drift from what actually validates. A test asserts every field
+  name appears in the prompt. (Simpler than embedding `model_json_schema()`, which is verbose.)
+- **The analyzer grounds the model's answer**: `data_flow`, `source_file` and `sink_file` are
+  filled from the context when the model omits them, because our own analysis is the
+  trustworthy source for those. A model-supplied value is left alone — and then checked by the
+  validator against the real file list.
+- `MockClient` matches canned replies by looking for the vulnerability type in the prompt text.
+  Add new ones to `tests/fixtures/mock_responses.json`; anything unmatched returns the
+  `default` entry, which is `Needs Manual Review`.
 - **Semgrep needs the skip list passed explicitly.** Because `--no-git-ignore
   --x-ignore-semgrepignore-files` also discards `.gitignore`, Semgrep happily scanned `.venv`
   and reported 9 findings from site-packages. It is now given `--exclude` for every entry in
