@@ -9,7 +9,7 @@ file, then stop.** Do not start the next milestone in the same session.
 
 ## Status
 
-- **Current milestone: M2 — Source manager** (not started)
+- **Current milestone: M3 — Repository analyzer and code map** (not started)
 - Last updated: 2026-09-29 by Claude Opus 5 (Claude Code)
 
 ## Done
@@ -24,16 +24,21 @@ file, then stop.** Do not start the next milestone in the same session.
   `CodeExcerpt`/`FindingContext`/`AIAnalysis`/`ReportItem`/`ScanReport` (§7–§13).
   **Plain data only — no methods, no properties, no unused fields.** Verified:
   `uv run pytest` → 9 passed.
+- **M2 — Source manager.** `load_source(repo, path, settings)` in `app/source/loader.py` is
+  the convergence point: Git and local input both return a `Repository` with a directory
+  `root`. Shallow clone into `Settings.temp_dir`, replacing any previous clone. Failures raise
+  `SourceError` (CLI exit 2). Verified: `uv run pytest` → 18 passed, including a real clone of
+  a repo the test creates on disk; `uv run scan --repo https://github.com/octocat/Hello-World.git`.
 
 ## In progress
 
-Nothing mid-flight. M1 finished cleanly.
+Nothing mid-flight. M2 finished cleanly.
 
-**Next concrete step:** M2 source manager — `app/source/local_loader.py`,
-`git_loader.py`, `loader.py`. `load_source()` returns a populated-enough `Repository`
-(at minimum `root`, and `origin` when cloned) for both input kinds; file discovery itself
-belongs to M3, so do not build it here. Clone shallow into `Settings.temp_dir`. Then wire
-`--path`/`--repo` in `main.py` far enough to print the resolved root.
+**Next concrete step:** M3 repository analyzer — `file_filter.py`, `language_detector.py`,
+`code_map.py`, `analyzer.py`. `analyze(repository)` fills in `files`, `languages`,
+`frameworks`, `entry_points` and returns a `CodeMap`. **Honour `Repository.single_file`:**
+when set, analyze only that file, not the whole directory. One `ast.NodeVisitor` collecting
+imports, def/class line ranges and call names; build `symbol_index` from the definitions.
 
 ## Frozen contracts
 
@@ -42,8 +47,11 @@ package's `__all__` is the contract surface. Changing a field means updating eve
 keep this list current as consumers appear.
 
 - `Finding` — produced by `findings/parser.py` (M4), consumed by everything after it.
-- `Repository`, `CodeMap`, `FileNode`, `Symbol` — produced by `repository/analyzer.py` (M3),
-  consumed by `context/` (M5).
+- `Repository` — `root`/`origin`/`single_file` set by `source/loader.py` (M2); the rest filled
+  by `repository/analyzer.py` (M3). `CodeMap`, `FileNode`, `Symbol` — produced by M3, consumed
+  by `context/` (M5).
+- `SourceError` (`app/source/__init__.py`) — the one exception the CLI turns into exit code 2.
+  Its message is shown to the user verbatim, so keep messages actionable.
 - `FindingContext` — produced by `context/builder.py` (M5), rendered into a prompt by
   `ai/prompts.py` (M6).
 - `AIAnalysis` — **this is the LLM's output schema.** Its `Literal` enums are what stop a
@@ -75,6 +83,11 @@ keep this list current as consumers appear.
   is absolute. Keep it that way or reports and code-map lookups stop agreeing on paths.
 - `AIAnalysis.model_json_schema()` produces the exact §9 field list — M6 should embed that in
   the system prompt rather than hand-writing the schema, so the two can never drift.
+- `Repository.single_file` was added to the frozen models in M2: spec §17 requires single-file
+  input, and a file's root is its parent directory. M3 is its consumer — it must not be ignored,
+  or `scan --path some_file.py` silently scans the whole directory.
+- GitPython wraps git's stderr as `\n  stderr: '...'`; `git_loader` unwraps it to the `fatal:`
+  line so users see one clean sentence. Don't pass `exc.stderr` through raw.
 - `CodeMap.symbol_index` maps a name to a *list* of files: resolution is by name only, so two
   files defining `search()` both come back. M5 must handle ambiguity, not assume one hit.
 - The models are deliberately **data only**. Lookup logic (enclosing function, callers of a

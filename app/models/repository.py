@@ -19,6 +19,7 @@ class SourceFile(BaseModel):
 class Repository(BaseModel):
     root: str  # absolute path on disk; every other path is relative to it
     origin: str | None = None  # Git URL, if cloned
+    single_file: str | None = None  # set when the user asked to scan one file, not a tree
     files: list[SourceFile] = Field(default_factory=list)
     languages: list[str] = Field(default_factory=list)
     frameworks: list[str] = Field(default_factory=list)

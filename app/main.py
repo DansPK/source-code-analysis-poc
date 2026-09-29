@@ -11,6 +11,8 @@ import argparse
 import sys
 
 from app.config.settings import Settings, get_settings
+from app.source import SourceError
+from app.source.loader import load_source
 from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -23,7 +25,10 @@ def run_scan(repo: str | None, path: str | None, settings: Settings):
     analysis -> static scan -> finding parse -> context -> AI analysis -> validation
     -> agent -> report.
     """
-    raise NotImplementedError("Pipeline stages land in M2-M7; see HANDOFF.md.")
+    repository = load_source(repo, path, settings)
+    logger.info("Source: %s%s", repository.root, f" (from {repository.origin})" if repository.origin else "")
+
+    raise NotImplementedError("Pipeline stages land in M3-M7; see HANDOFF.md.")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -42,6 +47,9 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         run_scan(args.repo, args.path, settings)
+    except SourceError as exc:
+        logger.error("%s", exc)
+        return 2
     except NotImplementedError as exc:
         logger.error("%s", exc)
         return 1
