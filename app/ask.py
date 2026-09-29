@@ -38,13 +38,17 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     if args.question:
-        answer, _ = ask(client, repository, code_map, " ".join(args.question))
+        answer, _ = ask(
+            client, repository, code_map, " ".join(args.question),
+            max_steps=settings.max_ask_steps,
+        )
         print(answer)
         return 0
 
-    from app.tui import AskTUI
+    from app.tui import AskApp
 
-    return AskTUI(client, repository, code_map).run()
+    AskApp(client, repository, code_map, settings).run()
+    return 0
 
 
 if __name__ == "__main__":

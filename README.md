@@ -89,7 +89,7 @@ examined.
 
 Optional settings: `MAX_CALLER_DEPTH` and `MAX_CALLEE_DEPTH` (default `2`) set how many
 levels of callers and callees are gathered, `MAX_SNIPPET_LINES` (`40`) truncates each code
-excerpt, `SEMGREP_CONFIGS` is a comma-separated list of Semgrep rulesets (registry packs such as
+excerpt, `MAX_ASK_STEPS` (`20`) limits how many tool calls the ask agent may make, `SEMGREP_CONFIGS` is a comma-separated list of Semgrep rulesets (registry packs such as
 `p/security-audit`, or local directories), `TEMP_DIR` sets where clones land, and
 `API_HOST` and `API_PORT` bind the server. Higher depth values increase prompt size and cost.
 

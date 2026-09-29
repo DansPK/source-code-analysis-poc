@@ -93,7 +93,7 @@ def test_step_limit_is_enforced(project):
 
     answer, _ = ask(client, repository, code_map, "q")
 
-    assert "ran out of steps" in answer
+    assert "could not reach an answer" in answer
     assert len(client.prompts) == MAX_STEPS
 
 
@@ -105,3 +105,14 @@ def test_transcript_continues_a_conversation(project):
     _, transcript = ask(client, repository, code_map, "two", transcript)
 
     assert "QUESTION: one" in client.prompts[1]  # earlier turn still visible
+
+
+def test_final_step_asks_for_an_answer_instead_of_another_tool_call(project):
+    """A long investigation must end with findings, not with nothing."""
+    repository, code_map = project
+    client = ScriptedClient(*[{"tool": "list_files", "args": {}}] * 3)
+
+    ask(client, repository, code_map, "q", max_steps=3)
+
+    assert "final step" in client.prompts[-1]
+    assert "final step" not in client.prompts[0]

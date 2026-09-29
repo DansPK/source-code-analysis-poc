@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     max_caller_depth: int = 2
     max_callee_depth: int = 2
     max_snippet_lines: int = 40
+    max_ask_steps: int = 20  # tool calls the ask agent may make before it must answer
 
     temp_dir: str = str(WORKSPACE / "projects")  # where Git clones land
     reports_dir: str = str(WORKSPACE / "reports")

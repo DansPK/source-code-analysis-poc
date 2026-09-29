@@ -134,6 +134,15 @@ keep this list current as consumers appear.
 - `ReportItem.id` (`VULN-001`) is the user-facing id and is assigned by the agent;
   `Finding.id` (`F-001`) is the scanner's internal one. They are deliberately separate — after
   deduplication the F-numbers have gaps, which would look like missing findings in a report.
+- The TUI (`app/tui/`) is Textual, driven headlessly in `tests/test_tui.py` via
+  `app.run_test()`. Long work runs in `@work(thread=True)` workers and touches widgets only
+  through `call_from_thread`, or Textual raises.
+- **Streaming reads the answer out of a JSON reply as it arrives** (`agent/ask.AnswerStream`).
+  The model returns one JSON object, so the stream cannot simply be printed; the extractor
+  tracks the `answer` field and decodes it incrementally, emitting nothing for a tool call.
+- `MAX_ASK_STEPS` defaults to 20. Eight was not enough for a 129-file Java project — the agent
+  ran out mid-investigation. On the final step the prompt now demands an answer rather than
+  another tool call, so a long investigation ends with findings.
 - **Detection is multi-language; context is not.** `settings.semgrep_configs` is a
   comma-separated list, defaulting to `p/security-audit,p/secrets` plus the bundled rules, so
   Semgrep reports findings in any language it supports. The code map is still Python-only, so
