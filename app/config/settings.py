@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     temp_dir: str = "temp"  # where Git clones land
     semgrep_rules: str = "rules/semgrep"  # --config passed to Semgrep
 
+    api_host: str = "127.0.0.1"
+    api_port: int = 8000
+
 
 def get_settings() -> Settings:
     return Settings()

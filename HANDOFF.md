@@ -9,7 +9,7 @@ file, then stop.** Do not start the next milestone in the same session.
 
 ## Status
 
-- **Current milestone: M8 — FastAPI layer** (not started)
+- **All milestones complete (M0–M8).** The POC pipeline works end to end.
 - Last updated: 2026-09-29 by Claude Opus 5 (Claude Code)
 
 ## Done
@@ -32,14 +32,21 @@ file, then stop.** Do not start the next milestone in the same session.
 
 ## In progress
 
-Nothing mid-flight. M7 finished cleanly, and the POC pipeline is complete.
+Nothing mid-flight. **The POC is feature-complete** — every stage in the spec works, from a
+Git URL or local path through to a natural-language report with a suggested fix.
 
-**Next concrete step:** M8 FastAPI layer — `app/api/schemas.py` (`ScanRequest` with
-`repo_url | path | mock`; reuse `ScanReport` for the response, it is already Pydantic),
-`app/api/routes.py` (`POST /scan`, `GET /health`), `app/api/server.py` (`create_app()` plus
-a `main()` for the `scan-api` script). **A thin adapter only** — it calls `run_scan()` and
-holds no pipeline logic. Use `def`, not `async def`, so FastAPI runs the blocking scan in a
-threadpool; say in the docstring that scans are synchronous and can take minutes.
+There is no next milestone. Work from here is a choice, not a plan. The most valuable
+directions, roughly in order:
+
+1. **More Semgrep rules.** `rules/semgrep/` holds one rule (SQL injection). Command
+   injection, path traversal and unsafe deserialization are the obvious next ones, and each
+   needs a matching fixture and a canned reply in `tests/fixtures/mock_responses.json`.
+2. **A real-LLM evaluation run** (spec §20). Everything so far is verified against canned
+   replies. Point it at a deliberately vulnerable project (OWASP Juice Shop, DVWA) with a real
+   key and measure how often the AI's verdict matches the known ground truth.
+3. **A second language.** The code map is Python-only via stdlib `ast`; a tree-sitter backend
+   behind the same `CodeMap` types would cover JavaScript without touching `context/`.
+4. **Background scans for the API.** `POST /scan` blocks for minutes on a real repository.
 
 ## Frozen contracts
 
@@ -84,6 +91,11 @@ keep this list current as consumers appear.
   is absolute. Keep it that way or reports and code-map lookups stop agreeing on paths.
 - `AIAnalysis.model_json_schema()` produces the exact §9 field list — M6 should embed that in
   the system prompt rather than hand-writing the schema, so the two can never drift.
+- `app.routes` on this FastAPI version holds an `_IncludedRouter` wrapper rather than the
+  flattened routes, so inspecting it looks like `include_router()` did nothing. It did — check
+  with a request or `/openapi.json`, not by reading `app.routes`.
+- The API deliberately has no job store: `POST /scan` runs the scan synchronously in
+  FastAPI's threadpool. Fine for a demo, not for a real repository.
 - Mock replies are keyed by the prompt's `TASK:` line, then by vulnerability type
   (`tests/fixtures/mock_responses.json`). Adding a prompt means adding a task section there,
   or `MockClient` falls back to the analysis replies.
