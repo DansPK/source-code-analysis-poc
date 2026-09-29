@@ -19,3 +19,7 @@ rules:
     pattern-sinks:
       - pattern: $CURSOR.execute(...)
       - pattern: $CURSOR.executemany(...)
+      # Django ORM escape hatches -- these take raw SQL and are the usual way
+      # injection reaches a Django app.
+      - pattern: $MODEL.objects.raw(...)
+      - pattern: $MODEL.objects.extra(...)
