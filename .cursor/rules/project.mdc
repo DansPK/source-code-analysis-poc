@@ -11,6 +11,9 @@ Key points, in case `AGENTS.md` has not been read yet:
 
 - Design-only repo so far. `AI_Source_Code_Vulnerability_Scanner_POC.md` is the
   authoritative spec; `folder-structure.md` fixes the package layout under `app/`.
+- **Keep it simple.** POC, not a framework: if you cannot name the caller, do not write it.
+  Models in `app/models/` are plain data; logic lives in the module whose job it is. No plugin
+  systems, registries, factories or async.
 - Python 3.11 via uv: `uv sync`, `uv add <pkg>`, `uv run pytest`.
 - Staged pipeline: Source Manager → Repository Analyzer → Semgrep → Finding Parser →
   Context Investigator → AI Analyzer → Validator → AI Agent → Report Engine. Keep the

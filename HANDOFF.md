@@ -19,10 +19,11 @@ file, then stop.** Do not start the next milestone in the same session.
   in `app/utils/logging.py`, CLI skeleton in `app/main.py`, and the vulnerable Flask fixture
   at `tests/vulnerable_samples/flask_app/`.
   Verified: `uv sync && uv run scan --help`; `uv run semgrep --version` → 1.178.0.
-- **M1 — Frozen data contracts.** `app/models/` complete and re-exported from
-  `app.models` (18 names). `Finding` (spec §5.5), `Repository`/`SourceFile`/`Symbol`/
-  `FileNode`/`CodeMap` (§5.2–5.3), `CodeExcerpt`/`FindingContext`/`AIAnalysis`/`ReportItem`/
-  `ScanReport` (§7–§13). Verified: `uv run pytest` → 24 passed.
+- **M1 — Frozen data contracts.** `app/models/` complete, re-exported from `app.models`.
+  `Finding` (spec §5.5), `Repository`/`SourceFile`/`Symbol`/`FileNode`/`CodeMap` (§5.2–5.3),
+  `CodeExcerpt`/`FindingContext`/`AIAnalysis`/`ReportItem`/`ScanReport` (§7–§13).
+  **Plain data only — no methods, no properties, no unused fields.** Verified:
+  `uv run pytest` → 9 passed.
 
 ## In progress
 
@@ -74,10 +75,12 @@ keep this list current as consumers appear.
   is absolute. Keep it that way or reports and code-map lookups stop agreeing on paths.
 - `AIAnalysis.model_json_schema()` produces the exact §9 field list — M6 should embed that in
   the system prompt rather than hand-writing the schema, so the two can never drift.
-- `CodeMap.defining_files()` returns a *list*: symbol resolution is by name only, so two files
-  defining `search()` both come back. Callers must handle ambiguity, not assume one hit.
-- `CodeMap.callers_of()` already excludes a file that calls a symbol it also defines; don't
-  re-filter that in M5.
+- `CodeMap.symbol_index` maps a name to a *list* of files: resolution is by name only, so two
+  files defining `search()` both come back. M5 must handle ambiguity, not assume one hit.
+- The models are deliberately **data only**. Lookup logic (enclosing function, callers of a
+  symbol) belongs in M5's `symbol_resolver.py` and `call_graph.py`, which exist for exactly
+  that. An earlier pass put those helpers on the models; they were removed. Do not put them
+  back — logic on the contract makes the contract hard to freeze.
 
 ## Next milestones
 

@@ -20,6 +20,52 @@ note in `HANDOFF.md` is the single most expensive thing you can do to the next a
 One commit per milestone, subject line `M<n>: <what it does>` — so `git log --oneline` reads as
 the milestone history and any milestone can be reviewed or reverted on its own.
 
+## Keep it simple
+
+**This is the rule agents break most often here, so read it before writing code.**
+
+A POC exists to prove an idea works, and over-building is the most likely way to fail. The
+reader of this code is a human trying to understand the pipeline — optimize for that, not for
+flexibility you might want later. Simple, obvious code that does exactly what the milestone
+needs beats clever code that anticipates the future.
+
+**The one test: if you cannot name the caller, do not write it.**
+
+That applies to every field, helper, property, parameter, config option, class and abstraction.
+No "might be useful later". Later is when the caller exists, and adding it then is cheap —
+the milestone that needs it will add it.
+
+Concretely:
+
+- No plugin systems, registries, DI containers, factories, or async. Straight-line
+  synchronous code that reads top to bottom.
+- One class per module at most; prefer plain functions. A class with one method is a function.
+- Models in `app/models/` are **plain data — no methods, no properties.** Logic lives in the
+  module whose job it is: "which function contains this line" is `context/symbol_resolver.py`,
+  not a method on `FileNode`.
+- Don't wrap what already works. `subprocess.run`, `ast.walk` and `pathlib` are fine used
+  directly; a wrapper that only forwards arguments is noise.
+- Handle the error you can actually act on. No broad `try/except` that hides a bug, no
+  defensive checks for states that cannot occur.
+- Python only, stdlib `ast` for parsing — no tree-sitter. Add a dependency only when a
+  milestone names it.
+- Comments explain *why*, not *what*. Code that needs a comment to say what it does should be
+  rewritten instead.
+- Every module's public surface is a function taking and returning `app/models/` types. That
+  is what lets milestones be owned independently.
+
+**Before you commit, re-read your diff and delete:** anything with no caller, any abstraction
+with one implementation, any option nobody sets, any test that tests the library rather than
+your logic. Shorter is the goal — a milestone that lands in 80 clear lines is better than the
+same milestone in 300.
+
+This is not hypothetical: M1 was first written with ~713 lines of models, helpers and tests,
+and cut to ~318 with no loss of function. Everything removed was speculative.
+
+Out of scope (spec §17): dynamic testing, exploitation, full taint/data-flow analysis, RAG or
+vector search, multi-agent orchestration, auto-patching, CI/CD integration, web UI. If a stage
+feels like it needs one of these, it is being over-built.
+
 ## Project state
 
 Under construction. The authoritative references are:
@@ -77,22 +123,13 @@ Key invariants that span multiple modules:
 
 Both Git-URL and local-path inputs must converge on the same internal pipeline after `source/`. Cloned repos go to `temp/`; `reports/` holds generated output; custom Semgrep rules live in `rules/semgrep/`.
 
-## Keep it simple
-
-This is a POC, and over-building it is the most likely way to fail. Each module should be the
-simplest thing that demonstrates its stage:
-
-- No plugin systems, registries, DI containers, or async. Straight-line synchronous code.
-- One class per module at most; prefer module-level functions.
-- Python only, stdlib `ast` for parsing — no tree-sitter.
-- Add a dependency only when a milestone calls for it.
-- Every module's public surface is a function taking and returning `app/models/` types. That is
-  what lets milestones be owned independently.
-
-Out of scope (spec §17): dynamic testing, exploitation, full taint/data-flow analysis, RAG or
-vector search, multi-agent orchestration, auto-patching, CI/CD integration, web UI. If a stage
-feels like it needs one of these, it is being over-built.
-
 ## Testing approach
 
-`tests/vulnerable_samples/` holds intentionally vulnerable code used as ground truth. Evaluation compares, per known vulnerability: did Semgrep detect it, did the analyzer find the right related files, was the source/sink pair correct, and did the AI classify it correctly (section 20).
+`tests/vulnerable_samples/` holds intentionally vulnerable code used as ground truth. Evaluation
+compares, per known vulnerability: did Semgrep detect it, did the analyzer find the right related
+files, was the source/sink pair correct, and did the AI classify it correctly (spec §20).
+
+Test the behaviour the next milestone depends on, not the library. Pydantic already validates
+its own types — a test asserting that `int` rejects `"abc"` is noise, while one asserting that
+an invented vulnerability status is rejected protects the report from a hallucinating model.
+Every test must pass with `LLM_MOCK=1` and no API key.

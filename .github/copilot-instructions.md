@@ -7,6 +7,11 @@ This repository is currently design-only: no source code yet, just the POC
 specification in `AI_Source_Code_Vulnerability_Scanner_POC.md` and the planned
 layout in `folder-structure.md`. Follow those rather than inventing a layout.
 
+**Keep it simple — this is a POC.** If you cannot name the caller, do not write it: no
+speculative fields, helpers, options or abstractions. Models are plain data; logic goes in the
+module whose job it is. No plugin systems, registries or async. Shorter and obvious beats
+flexible.
+
 Python 3.11, managed with **uv** (`uv sync`, `uv add <pkg>`, `uv run pytest`).
 
 The scanner pipeline is strictly staged and the stages must stay separate:
