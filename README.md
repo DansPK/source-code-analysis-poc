@@ -1,65 +1,79 @@
 # AI Source Code Vulnerability Scanner
 
-A proof of concept for combining static analysis with an LLM to find and explain
+A proof of concept that combines static analysis with an LLM to find and explain
 vulnerabilities in a source project.
 
-Static analysis reports *where* suspicious code is, not whether it matters. A
-`cursor.execute()` built by string concatenation looks identical whether the value came
-from an HTTP request or a constant, and the scanner usually cannot tell, because the answer
-is in another file. Handing the whole repository to an LLM instead is expensive, does not
-scale, and gives the model no way to know which lines deserve attention.
+## Overview
 
-This project tests the middle path: a scanner decides **what is suspicious**, the project's
-own structure supplies **the code that explains it**, and the LLM only decides **whether it
-is real**. The LLM never searches for vulnerabilities.
+Static analysis reports where suspicious code is, not whether it matters. A
+`cursor.execute()` built by string concatenation looks the same whether the value came from
+an HTTP request or from a constant. The scanner usually cannot tell the difference, because
+the answer is in another file. Passing the whole repository to an LLM instead is expensive,
+does not scale, and gives the model no way to know which lines deserve attention.
+
+This project splits the work. Semgrep decides what is suspicious. The project's call graph
+supplies the code that explains it. The LLM decides only whether the finding is real, and
+writes the explanation for the developer. The LLM is never asked to search for
+vulnerabilities.
+
+The full design is in
+[`AI_Source_Code_Vulnerability_Scanner_POC.md`](AI_Source_Code_Vulnerability_Scanner_POC.md).
 
 ## How it works
 
 ```
 Git URL or local path
-  → Source manager        clone or resolve to a project root
-  → Repository analyzer   detect language/framework, build a code map (one AST pass per file)
-  → Semgrep               candidate findings
-  → Finding parser        normalize to a scanner-independent Finding
-  → Context investigator  walk the call chain from the finding back to an entry point
-  → AI analyzer           is this real? where does the input come from?
-  → Validator             reject claims not grounded in this codebase
-  → Agent                 explain it, recommend a fix
-  → Report                terminal or JSON
+  -> Source manager        clone or resolve to a project root
+  -> Repository analyzer   detect language and framework, build a code map
+  -> Semgrep               candidate findings
+  -> Finding parser        normalize to a scanner-independent Finding
+  -> Context investigator  walk the call chain from the finding to an entry point
+  -> AI analyzer           decide whether the finding is real
+  -> Validator             reject claims not grounded in this codebase
+  -> Agent                 explain the finding, recommend a fix
+  -> Report                terminal or JSON
 ```
 
-The bundled fixture spreads one vulnerability across three files:
+The bundled test fixture spreads one vulnerability across three files:
 
 ```python
 # routes/search.py
 q = request.args["q"]                   # attacker-controlled
 results = search_users(q)
-# services/search_service.py            forwards it unchanged
+
+# services/search_service.py            forwards the value unchanged
+
 # database/user_repository.py
 query = "SELECT ... LIKE '%" + name + "%'"
 cursor.execute(query)                   # Semgrep reports only this line
 ```
 
-Semgrep reports the last line. On its own that is not judgeable — `name` could be anything.
-The context investigator walks the call chain backwards, finds `request.args["q"]` two files
-away, and sends the model the three functions involved (~1.3 KB) instead of the repository.
+Semgrep reports the last line. That line alone is not enough to reach a verdict, since
+`name` could be anything. The context investigator walks the call chain backwards, finds
+`request.args["q"]` two files away, and sends the model the three functions involved, about
+1.3 KB, rather than the repository.
 
-Two design rules keep it honest: **the validator only lowers a verdict** — a file the model
-names that the project does not contain, or a claim with no evidence, is downgraded to
-`Needs Manual Review` rather than dropped or trusted — and **the agent recommends, it never
-patches**.
+Two rules constrain what reaches the report. The validator can only lower a verdict: if the
+model names a file the project does not contain, or gives a verdict without evidence, the
+finding is downgraded to `Needs Manual Review` rather than dropped or trusted. The agent
+recommends changes and never modifies code.
 
-Full design: [`AI_Source_Code_Vulnerability_Scanner_POC.md`](AI_Source_Code_Vulnerability_Scanner_POC.md).
+## Requirements
 
-## Setup
+- Python 3.11 or later
+- [uv](https://docs.astral.sh/uv/)
+- An API key for an OpenAI-compatible LLM endpoint
 
-Requires Python 3.11+, [uv](https://docs.astral.sh/uv/), and an API key for any
-OpenAI-compatible endpoint. Semgrep installs as a Python dependency.
+Semgrep is installed as a Python dependency.
+
+## Installation
 
 ```bash
 uv sync
 cp .env.example .env
 ```
+
+Set the model configuration in `.env`:
 
 ```ini
 LLM_BASE_URL=https://api.deepseek.com
@@ -67,10 +81,10 @@ LLM_API_KEY=sk-...
 LLM_MODEL=deepseek-chat
 ```
 
-Other settings, all optional: `MAX_CALLER_DEPTH` and `MAX_CALLEE_DEPTH` (default `2`) control
-how many levels of context are gathered, `MAX_SNIPPET_LINES` (`40`) truncates each excerpt,
-`SEMGREP_RULES` (`rules/semgrep`) and `TEMP_DIR` (`temp`) set paths, `API_HOST`/`API_PORT`
-bind the server. Raising the depths increases prompt size and cost.
+Optional settings: `MAX_CALLER_DEPTH` and `MAX_CALLEE_DEPTH` (default `2`) set how many
+levels of callers and callees are gathered, `MAX_SNIPPET_LINES` (`40`) truncates each code
+excerpt, `SEMGREP_RULES` (`rules/semgrep`) and `TEMP_DIR` (`temp`) set paths, and
+`API_HOST` and `API_PORT` bind the server. Higher depth values increase prompt size and cost.
 
 ## Usage
 
@@ -80,15 +94,17 @@ uv run scan --path app/services/user.py       # single file
 uv run scan --repo https://github.com/stamparm/DSVW
 
 uv run scan --path <dir> --format json        # writes reports/scan-<timestamp>.json
-uv run scan --path <dir> --out /tmp/reports   # chosen directory
+uv run scan --path <dir> --out /tmp/reports   # writes to a chosen directory
 ```
 
-`--format json` replaces the terminal output; pass `--out` alone to get both.
+`--format json` replaces the terminal output. Pass `--out` on its own to get both.
 
-HTTP API — same report, synchronous, minutes on a large repo:
+The HTTP API returns the same report. Scans run synchronously and can take several minutes
+on a large repository.
 
 ```bash
 uv run scan-api      # http://localhost:8000, OpenAPI docs at /docs
+
 curl -X POST localhost:8000/scan -H 'content-type: application/json' \
      -d '{"path": "/path/to/project"}'
 ```
@@ -105,30 +121,33 @@ Sink:        cursor.execute()   (database/user_repository.py:17)
 
 Data flow:
     routes/search.py
-  → services/search_service.py
-  → database/user_repository.py
+  -> services/search_service.py
+  -> database/user_repository.py
 
 What happens:    [why the flow is dangerous]
 Suggested fix:   [what to change, and in which layer]
 ```
 
 Statuses are `Likely Vulnerable`, `Possible Vulnerability`, `Likely False Positive` and
-`Needs Manual Review`; confidence is `High`, `Medium` or `Low`. These are a model's
-assessment, not a guarantee. The JSON report adds the gathered context, so a finding can be
-re-examined without re-running the scan.
+`Needs Manual Review`. Confidence is `High`, `Medium` or `Low`. Both are the model's
+assessment and are not guarantees.
+
+The JSON report contains the same fields plus the gathered context, so a finding can be
+reviewed without running the scan again.
 
 ## Project structure
 
-Each package under `app/` is one pipeline stage, exchanging the shared types in `models/`.
+Each package under `app/` is one pipeline stage. Stages exchange the shared types defined in
+`app/models/`.
 
 ```
 app/
-├── main.py       CLI, and run_scan() -- where the pipeline is wired together
+├── main.py       CLI, and run_scan(), where the pipeline is wired together
 ├── models/       shared data types; plain Pydantic, no logic
 ├── source/       clone a Git URL or resolve a local path
 ├── repository/   file discovery, language detection, code map
 ├── scanners/     run Semgrep
-├── findings/     normalize scanner output, drop duplicates
+├── findings/     normalize scanner output, remove duplicates
 ├── context/      callers, callees, cross-file flow
 ├── ai/           prompts, LLM client, analyzer, validator
 ├── agent/        explanation and fix recommendation
@@ -136,37 +155,41 @@ app/
 └── api/          FastAPI wrapper over run_scan()
 
 rules/semgrep/              detection rules
-tests/vulnerable_samples/   intentionally vulnerable apps used as ground truth
+tests/vulnerable_samples/   intentionally vulnerable applications used as ground truth
 ```
 
 ## Development
 
 ```bash
 uv run pytest                                    # full suite
-uv run pytest tests/test_context.py::test_name   # one test
+uv run pytest tests/test_context.py::test_name   # a single test
 ```
 
-The LLM is stubbed at the client boundary in tests, so the suite needs no API key and makes
-no network calls. Conventions are in [`AGENTS.md`](AGENTS.md); current state and known
-pitfalls in [`HANDOFF.md`](HANDOFF.md).
+Tests replace the LLM client with a stub, so the suite requires no API key and makes no
+network calls.
+
+Conventions are documented in [`AGENTS.md`](AGENTS.md). Current state and known pitfalls are
+in [`HANDOFF.md`](HANDOFF.md).
 
 ## Limitations
 
-The pipeline is complete; its coverage is not.
+The pipeline is complete. Its detection coverage is not.
 
-- **One vulnerability class.** A single rule, for SQL injection reaching `execute()`,
-  `executemany()`, `objects.raw()` or `objects.extra()`. A clean result means no SQL
-  injection of a matched shape — not a safe project.
-- **Python only.** Other languages are listed but not parsed, so no cross-file context.
-- **Name-based symbol resolution.** No type inference or scope analysis; call sites are
-  found by searching source text, so a name in a comment can misattribute a caller. The cost
-  is irrelevant context, not a wrong verdict.
-- **Three LLM calls per finding**, roughly 10–20 seconds each.
-- **Accuracy is unmeasured.** Correct on the projects below, but with no systematic
-  ground-truth evaluation and no established false-positive rate.
+- One vulnerability class. A single rule covers SQL injection reaching `execute()`,
+  `executemany()`, `objects.raw()` or `objects.extra()`. A result with no findings means no
+  SQL injection of a matched shape was found, not that the project is secure.
+- Python only. Other languages are listed in the report but not parsed, so no cross-file
+  context is built for them.
+- Symbol resolution is name-based, without type inference or scope analysis. Call sites are
+  located by searching function source text, so a name in a comment can produce an incorrect
+  caller. The result is irrelevant context rather than an incorrect verdict.
+- Each finding costs three LLM calls and takes about 10 to 20 seconds.
+- Accuracy has not been measured. Results were correct on the projects listed below, but
+  there has been no systematic evaluation against known ground truth and no false-positive
+  rate has been established.
 
 Out of scope by design: dynamic testing, exploitation, whole-program taint analysis,
-dependency and secret scanning, automatic patching, CI/CD integration.
+dependency and secret scanning, automatic patching, and CI/CD integration.
 
 ## Tested against
 
@@ -178,5 +201,6 @@ dependency and secret scanning, automatic patching, CI/CD integration.
 | [anxolerd/dvpwa](https://github.com/anxolerd/dvpwa) | 58 | 1 |
 | [nVisium/django.nV](https://github.com/nVisium/django.nV) | 190 | 1 |
 
-All were assessed `Likely Vulnerable` at high confidence. These projects contain many more
-vulnerabilities than that; the counts reflect the single rule currently shipped.
+Every reported finding was assessed `Likely Vulnerable` with high confidence. These projects
+contain more vulnerabilities than these counts show; the counts reflect the single rule
+currently shipped.
