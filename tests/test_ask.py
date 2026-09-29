@@ -116,3 +116,32 @@ def test_final_step_asks_for_an_answer_instead_of_another_tool_call(project):
 
     assert "final step" in client.prompts[-1]
     assert "final step" not in client.prompts[0]
+
+
+def test_run_scanner_tool_reports_findings(project):
+    """The model can ask for rule-based evidence, not just read code."""
+    from app.agent.tools import run_scanner
+
+    repository, _ = project
+    out = run_scanner(repository, Settings())
+
+    assert "database/user_repository.py" in out
+    assert "SQL Injection" in out
+
+
+def test_run_scanner_says_silence_is_not_safety(project, tmp_path):
+    """A clean result must not read as proof the code is secure."""
+    from app.agent.tools import run_scanner
+    from app.models import Repository
+
+    (tmp_path / "ok.py").write_text("x = 1\n")
+    out = run_scanner(Repository(root=str(tmp_path)), Settings())
+
+    assert "not proof the code is safe" in out
+
+
+def test_run_scanner_rejects_a_path_outside_the_project(project):
+    from app.agent.tools import run_scanner
+
+    repository, _ = project
+    assert "No such path" in run_scanner(repository, Settings(), path="nope/")

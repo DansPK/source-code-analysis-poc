@@ -15,6 +15,7 @@ from collections.abc import Callable
 from app.ai import AIError
 from app.ai.client import LLMClient
 from app.agent.tools import DESCRIPTIONS, TOOLS
+from app.config.settings import Settings, get_settings
 from app.models import CodeMap, Repository
 from app.utils.logging import get_logger
 
@@ -107,6 +108,7 @@ def ask(
     on_step: Callable[[str, dict, str], None] | None = None,
     on_token: Callable[[str], None] | None = None,
     max_steps: int = MAX_STEPS,
+    settings: Settings | None = None,
 ) -> tuple[str, list[str]]:
     """Answer `question`. Returns the answer and the updated transcript.
 
@@ -114,6 +116,7 @@ def ask(
     called with (tool, args, why) as each tool runs, so a UI can show progress.
     `on_token` receives the final answer in pieces as the model writes it.
     """
+    settings = settings or get_settings()
     history = list(transcript or [])
     history.append(f"QUESTION: {question}")
 
@@ -144,7 +147,7 @@ def ask(
             on_step(name, args, str(reply.get("why", "")))
         else:
             logger.info("step %d: %s(%s)", step + 1, name, json.dumps(args))
-        result = tool(repository=repository, code_map=code_map, **args)
+        result = tool(repository=repository, code_map=code_map, settings=settings, **args)
         history.append(f"CALLED {name}({json.dumps(args)}):\n{result}")
 
     return "I could not reach an answer within the step limit.", history
