@@ -109,6 +109,17 @@ curl -X POST localhost:8000/scan -H 'content-type: application/json' \
      -d '{"path": "/path/to/project"}'
 ```
 
+### Asking questions
+
+`ask` answers questions about a project instead of scanning it. The model explores the code
+one step at a time using four tools (list files, read a file, regex search, find a symbol's
+definition and callers) and answers from what it read.
+
+```bash
+uv run ask --path /path/to/project "where does user input reach the database?"
+uv run ask --path /path/to/project            # interactive session, follow-ups keep context
+```
+
 ## Output
 
 ```
@@ -142,7 +153,8 @@ Each package under `app/` is one pipeline stage. Stages exchange the shared type
 
 ```
 app/
-├── main.py       CLI, and run_scan(), where the pipeline is wired together
+├── main.py       scan CLI, and run_scan(), where the pipeline is wired together
+├── ask.py        ask CLI
 ├── models/       shared data types; plain Pydantic, no logic
 ├── source/       clone a Git URL or resolve a local path
 ├── repository/   file discovery, language detection, code map
@@ -150,7 +162,7 @@ app/
 ├── findings/     normalize scanner output, remove duplicates
 ├── context/      callers, callees, cross-file flow
 ├── ai/           prompts, LLM client, analyzer, validator
-├── agent/        explanation and fix recommendation
+├── agent/        explanation, fix recommendation, and the ask agent
 ├── report/       terminal and JSON output
 └── api/          FastAPI wrapper over run_scan()
 

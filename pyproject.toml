@@ -18,6 +18,7 @@ dependencies = [
 [project.scripts]
 scan = "app.main:main"
 scan-api = "app.api.server:main"
+ask = "app.ask:main"
 
 [dependency-groups]
 dev = [
