@@ -11,6 +11,7 @@ import argparse
 import sys
 
 from app.config.settings import Settings, get_settings
+from app.repository.analyzer import analyze
 from app.source import SourceError
 from app.source.loader import load_source
 from app.utils.logging import get_logger
@@ -28,7 +29,9 @@ def run_scan(repo: str | None, path: str | None, settings: Settings):
     repository = load_source(repo, path, settings)
     logger.info("Source: %s%s", repository.root, f" (from {repository.origin})" if repository.origin else "")
 
-    raise NotImplementedError("Pipeline stages land in M3-M7; see HANDOFF.md.")
+    code_map = analyze(repository)
+
+    raise NotImplementedError("Pipeline stages land in M4-M7; see HANDOFF.md.")
 
 
 def main(argv: list[str] | None = None) -> int:

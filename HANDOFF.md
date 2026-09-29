@@ -9,7 +9,7 @@ file, then stop.** Do not start the next milestone in the same session.
 
 ## Status
 
-- **Current milestone: M3 — Repository analyzer and code map** (not started)
+- **Current milestone: M4 — Static scanner and findings** (not started)
 - Last updated: 2026-09-29 by Claude Opus 5 (Claude Code)
 
 ## Done
@@ -32,13 +32,13 @@ file, then stop.** Do not start the next milestone in the same session.
 
 ## In progress
 
-Nothing mid-flight. M2 finished cleanly.
+Nothing mid-flight. M3 finished cleanly.
 
-**Next concrete step:** M3 repository analyzer — `file_filter.py`, `language_detector.py`,
-`code_map.py`, `analyzer.py`. `analyze(repository)` fills in `files`, `languages`,
-`frameworks`, `entry_points` and returns a `CodeMap`. **Honour `Repository.single_file`:**
-when set, analyze only that file, not the whole directory. One `ast.NodeVisitor` collecting
-imports, def/class line ranges and call names; build `symbol_index` from the definitions.
+**Next concrete step:** M4 static scanner — `scanners/base_scanner.py` (3-method ABC),
+`scanners/semgrep_scanner.py` (`subprocess` → `semgrep --json`), a custom rule in
+`rules/semgrep/`, `findings/parser.py` and `findings/deduplicator.py`. The parser is the
+Semgrep isolation boundary: raw JSON in, `list[Finding]` out, paths made relative to
+`repository.root`, snippet read from disk. Nothing downstream may see Semgrep's shapes.
 
 ## Frozen contracts
 
@@ -83,6 +83,13 @@ keep this list current as consumers appear.
   is absolute. Keep it that way or reports and code-map lookups stop agreeing on paths.
 - `AIAnalysis.model_json_schema()` produces the exact §9 field list — M6 should embed that in
   the system prompt rather than hand-writing the schema, so the two can never drift.
+- Semgrep call names are stored **unqualified**: `cursor.execute(...)` is recorded as
+  `execute`, not `cursor.execute`. M5 matches on that, so a common method name can collide
+  across files — combine it with the import list rather than trusting it alone.
+- `analyze()` mutates the `Repository` it is given and returns only the `CodeMap`. Deliberate:
+  the caller already holds the repository, so returning both would just be noise.
+- Scanning this project itself reports `frameworks=['flask']` — correct, because
+  `tests/vulnerable_samples/flask_app` really is part of the tree. Not a bug.
 - `Repository.single_file` was added to the frozen models in M2: spec §17 requires single-file
   input, and a file's root is its parent directory. M3 is its consumer — it must not be ignored,
   or `scan --path some_file.py` silently scans the whole directory.
