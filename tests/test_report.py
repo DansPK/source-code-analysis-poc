@@ -167,11 +167,11 @@ def test_full_pipeline_on_the_fixture(monkeypatch):
 
     report = run_scan(None, "tests/vulnerable_samples/flask_app", Settings())
 
-    assert report.candidates_found == 1
-    found = report.items[0]
-    assert found.id == "VULN-001"
+    # Registry rulesets also flag other issues here, so find the one this fixture
+    # exists to prove rather than asserting a count that new rules would break.
+    found = next(i for i in report.items if i.finding.rule_id.endswith("python-sqli-concat"))
     assert found.analysis.status == "Likely Vulnerable"
-    assert found.analysis.data_flow == [
+    assert found.context.flow_chain == [
         "routes/search.py", "services/search_service.py", "database/user_repository.py"
     ]
     assert found.explanation and found.suggested_fix

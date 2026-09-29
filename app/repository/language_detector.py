@@ -9,8 +9,11 @@ from pathlib import Path
 from app.models import FileNode
 
 EXTENSIONS = {
-    ".py": "python", ".js": "javascript", ".ts": "typescript", ".jsx": "javascript",
-    ".tsx": "typescript", ".java": "java", ".go": "go", ".rb": "ruby", ".php": "php",
+    ".py": "python", ".js": "javascript", ".jsx": "javascript", ".ts": "typescript",
+    ".tsx": "typescript", ".java": "java", ".kt": "kotlin", ".kts": "kotlin",
+    ".go": "go", ".rb": "ruby", ".php": "php", ".cs": "csharp", ".rs": "rust",
+    ".c": "c", ".h": "c", ".cpp": "cpp", ".hpp": "cpp", ".scala": "scala",
+    ".swift": "swift", ".sh": "shell", ".tf": "terraform", ".sql": "sql",
 }
 
 # Top-level import names that identify a web framework -- these bring external input in.

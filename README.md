@@ -63,6 +63,7 @@ recommends changes and never modifies code.
 - Python 3.11 or later
 - [uv](https://docs.astral.sh/uv/)
 - An API key for an OpenAI-compatible LLM endpoint
+- Network access, for Semgrep's registry rulesets
 
 Semgrep is installed as a Python dependency.
 
@@ -88,7 +89,8 @@ examined.
 
 Optional settings: `MAX_CALLER_DEPTH` and `MAX_CALLEE_DEPTH` (default `2`) set how many
 levels of callers and callees are gathered, `MAX_SNIPPET_LINES` (`40`) truncates each code
-excerpt, `SEMGREP_RULES` and `TEMP_DIR` set paths, and
+excerpt, `SEMGREP_CONFIGS` is a comma-separated list of Semgrep rulesets (registry packs such as
+`p/security-audit`, or local directories), `TEMP_DIR` sets where clones land, and
 `API_HOST` and `API_PORT` bind the server. Higher depth values increase prompt size and cost.
 
 ## Usage
@@ -200,11 +202,11 @@ in [`HANDOFF.md`](HANDOFF.md).
 
 The pipeline is complete. Its detection coverage is not.
 
-- One vulnerability class. A single rule covers SQL injection reaching `execute()`,
-  `executemany()`, `objects.raw()` or `objects.extra()`. A result with no findings means no
-  SQL injection of a matched shape was found, not that the project is secure.
-- Python only. Other languages are listed in the report but not parsed, so no cross-file
-  context is built for them.
+- Detection is multi-language, cross-file analysis is not. Semgrep's registry rulesets
+  (`p/security-audit`, `p/secrets`) cover every language Semgrep supports, so findings are
+  reported for Java, JavaScript, Go and the rest. The code map is Python-only, so only Python
+  findings get callers, callees and a flow chain; other languages are analyzed with the code
+  around the finding alone.
 - Symbol resolution is name-based, without type inference or scope analysis. Call sites are
   located by searching function source text, so a name in a comment can produce an incorrect
   caller. The result is irrelevant context rather than an incorrect verdict.

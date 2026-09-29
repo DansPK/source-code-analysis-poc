@@ -134,6 +134,17 @@ keep this list current as consumers appear.
 - `ReportItem.id` (`VULN-001`) is the user-facing id and is assigned by the agent;
   `Finding.id` (`F-001`) is the scanner's internal one. They are deliberately separate — after
   deduplication the F-numbers have gaps, which would look like missing findings in a report.
+- **Detection is multi-language; context is not.** `settings.semgrep_configs` is a
+  comma-separated list, defaulting to `p/security-audit,p/secrets` plus the bundled rules, so
+  Semgrep reports findings in any language it supports. The code map is still Python-only, so
+  a Java or JS finding reaches the model with same-file context and a one-entry flow chain.
+  That degrades gracefully — `prompts.render_context` falls back to `finding.code_snippet` —
+  but cross-file investigation, the feature the design exists for, only works for Python.
+  Tree-sitter behind the same `CodeMap` types is the way to extend it.
+- Registry packs are fetched from semgrep.dev at scan time, so scans now need network access.
+- **Do not assert exact finding counts in tests.** Registry rules found a second real issue in
+  the fixture (`app.run(debug=True)`), which broke two tests that hardcoded `== 1`. Assert the
+  specific finding by rule id instead.
 - **Everything written goes to `workspace/`** in the checkout (`settings.WORKSPACE`): clones
   in `projects/`, reports in `reports/`, `ask` conversations in `sessions/`. Nothing may be
   written outside the checkout, into the user's home, or into the project being examined.

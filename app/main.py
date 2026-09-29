@@ -37,7 +37,7 @@ def run_scan(repo: str | None, path: str | None, settings: Settings) -> ScanRepo
     code_map = analyze(repository)
     root = Path(repository.root)
 
-    findings = deduplicate(parse_semgrep(scan(root, settings.semgrep_rules), root))
+    findings = deduplicate(parse_semgrep(scan(root, settings.semgrep_configs), root))
     logger.info("Candidate findings: %d", len(findings))
 
     client = get_client(settings)

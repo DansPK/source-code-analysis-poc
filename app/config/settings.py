@@ -34,7 +34,9 @@ class Settings(BaseSettings):
 
     temp_dir: str = str(WORKSPACE / "projects")  # where Git clones land
     reports_dir: str = str(WORKSPACE / "reports")
-    semgrep_rules: str = str(PACKAGE_ROOT / "rules" / "semgrep")  # ships with the tool
+    # Comma-separated Semgrep configs. Registry packs cover every language Semgrep
+    # supports; the bundled directory holds our own rules.
+    semgrep_configs: str = f"p/security-audit,p/secrets,{PACKAGE_ROOT / 'rules' / 'semgrep'}"
 
     api_host: str = "127.0.0.1"
     api_port: int = 8000

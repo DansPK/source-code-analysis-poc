@@ -43,11 +43,11 @@ def test_scan_returns_the_same_report_the_cli_produces(client):
 
     assert response.status_code == 200
     report = response.json()
-    assert report["candidates_found"] == 1
-    item = report["items"][0]
-    assert item["id"] == "VULN-001"
+    item = next(
+        i for i in report["items"] if i["finding"]["rule_id"].endswith("python-sqli-concat")
+    )
     assert item["analysis"]["status"] == "Likely Vulnerable"
-    assert item["analysis"]["data_flow"] == [
+    assert item["context"]["flow_chain"] == [
         "routes/search.py", "services/search_service.py", "database/user_repository.py"
     ]
     assert item["explanation"] and item["suggested_fix"]

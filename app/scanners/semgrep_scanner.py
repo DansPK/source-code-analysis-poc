@@ -26,11 +26,27 @@ def _command() -> list[str]:
     return [binary] if binary else [sys.executable, "-m", "semgrep"]
 
 
-def scan(root: Path, rules: str) -> dict:
-    """Scan `root` with the rules at `rules`, returning Semgrep's parsed JSON."""
-    rules_path = project_path(rules)
-    if not rules_path.exists():
-        raise ScannerError(f"Semgrep rules not found: {rules_path}")
+def _configs(configs: str) -> list[str]:
+    """Split the configured list, and check that any local directory exists.
+
+    A registry pack (`p/security-audit`) is passed through; a path is resolved and
+    verified, because a typo there would otherwise silently scan with fewer rules.
+    """
+    resolved = []
+    for config in (c.strip() for c in configs.split(",") if c.strip()):
+        if config.startswith("p/") or config.startswith("r/"):
+            resolved.append(config)
+            continue
+        path = project_path(config)
+        if not path.exists():
+            raise ScannerError(f"Semgrep rules not found: {path}")
+        resolved.append(str(path))
+    return resolved
+
+
+def scan(root: Path, configs: str) -> dict:
+    """Scan `root` with every configured ruleset, returning Semgrep's parsed JSON."""
+    rulesets = _configs(configs)
 
     command = [
         *_command(), "scan", "--json", "--quiet",
@@ -41,9 +57,10 @@ def scan(root: Path, rules: str) -> dict:
         # ...but turning those off also drops .gitignore, so Semgrep would walk
         # .venv and node_modules. Exclude the same directories the analyzer skips.
         *[arg for directory in sorted(SKIP_DIRS) for arg in ("--exclude", directory)],
-        "--config", str(rules_path), str(root),
+        *[arg for ruleset in rulesets for arg in ("--config", ruleset)],
+        str(root),
     ]
-    logger.info("Running Semgrep on %s", root)
+    logger.info("Running Semgrep on %s with %d ruleset(s)", root, len(rulesets))
 
     try:
         result = subprocess.run(
