@@ -23,6 +23,50 @@ Source (Git URL | local path)
 Semgrep decides what is *suspicious*; the LLM only decides what is *real*. The whole
 repository is never handed to the model.
 
+## Project structure
+
+Each package under `app/` is one stage of that pipeline, in the order shown above. A stage
+takes and returns the shared types in `app/models/` and knows nothing about its neighbours'
+internals, which is what lets the stages be built and tested independently.
+
+```
+app/
+├── main.py         CLI, and run_scan() -- the one place the pipeline is wired together
+├── models/         shared data contracts; plain Pydantic types, no logic
+├── source/         input: clone a Git URL or resolve a local path to a project root
+├── repository/     walk the project, detect languages, build the whole-project code map
+├── scanners/       run static analysis (Semgrep) and return its raw output
+├── findings/       normalize scanner output into Finding, and drop duplicates
+├── context/        gather the code around a finding -- callers, callees, cross-file flow
+├── ai/             ask the LLM whether a finding is real, and validate what it answers
+├── agent/          turn a validated finding into an explanation and a suggested fix
+├── report/         render the result as CLI text or JSON
+├── api/            FastAPI wrapper over run_scan()
+├── config/         settings from .env
+└── utils/          logging
+```
+
+Two boundaries carry most of the design:
+
+- **`findings/parser.py`** is where Semgrep stops existing. It converts Semgrep's JSON into
+  `Finding`, and nothing after it knows which scanner produced the result — so adding a second
+  scanner means writing another parser, not touching the pipeline.
+- **`context/`** is the feature that makes the AI useful. A scanner reports the line where a
+  dangerous call happens; this package walks outward to find where the data came from, which is
+  usually a different file. Bounded to a couple of levels of callers and callees, deliberately —
+  the model should receive a flow, not a repository.
+
+Supporting directories:
+
+```
+tests/vulnerable_samples/   intentionally vulnerable apps used as ground truth (never run them)
+rules/semgrep/              custom Semgrep rules, so a demo doesn't depend on the registry
+temp/                       cloned repositories
+reports/                    generated JSON reports
+```
+
+`HANDOFF.md` says which of these are implemented so far.
+
 ## Install
 
 Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
