@@ -117,8 +117,13 @@ definition and callers) and answers from what it read.
 
 ```bash
 uv run ask --path /path/to/project "where does user input reach the database?"
-uv run ask --path /path/to/project            # interactive session, follow-ups keep context
+uv run ask --path /path/to/project            # interactive terminal UI
 ```
+
+Without a question it opens a terminal UI with tool calls shown as they run, markdown
+answers, and two kinds of persistent history: arrow-key recall of past input, and saved
+conversations kept per project under `~/.ask/`. Commands are `/help`, `/clear`, `/sessions`,
+`/resume [name]`, `/history`, `/files` and `/exit`.
 
 ## Output
 
@@ -155,6 +160,7 @@ Each package under `app/` is one pipeline stage. Stages exchange the shared type
 app/
 ├── main.py       scan CLI, and run_scan(), where the pipeline is wired together
 ├── ask.py        ask CLI
+├── tui.py        terminal UI for ask
 ├── models/       shared data types; plain Pydantic, no logic
 ├── source/       clone a Git URL or resolve a local path
 ├── repository/   file discovery, language detection, code map

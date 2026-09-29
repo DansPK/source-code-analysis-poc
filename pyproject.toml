@@ -13,6 +13,7 @@ dependencies = [
     "semgrep>=1.0",
     "fastapi>=0.115",
     "uvicorn>=0.30",
+    "prompt-toolkit>=3.0.53",
 ]
 
 [project.scripts]

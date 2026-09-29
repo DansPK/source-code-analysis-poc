@@ -9,6 +9,7 @@ OpenAI-compatible provider and needs no vendor-specific tool-calling support.
 """
 
 import json
+from collections.abc import Callable
 
 from app.ai import AIError
 from app.ai.client import LLMClient
@@ -47,10 +48,12 @@ def ask(
     code_map: CodeMap,
     question: str,
     transcript: list[str] | None = None,
+    on_step: Callable[[str, dict, str], None] | None = None,
 ) -> tuple[str, list[str]]:
     """Answer `question`. Returns the answer and the updated transcript.
 
-    Passing a previous transcript back in continues the conversation.
+    Passing a previous transcript back in continues the conversation. `on_step` is
+    called with (tool, args, why) as each tool runs, so a UI can show progress.
     """
     history = list(transcript or [])
     history.append(f"QUESTION: {question}")
@@ -73,7 +76,10 @@ def ask(
             continue
 
         args = reply.get("args") or {}
-        logger.info("step %d: %s(%s)", step + 1, name, json.dumps(args))
+        if on_step:
+            on_step(name, args, str(reply.get("why", "")))
+        else:
+            logger.info("step %d: %s(%s)", step + 1, name, json.dumps(args))
         result = tool(repository=repository, code_map=code_map, **args)
         history.append(f"CALLED {name}({json.dumps(args)}):\n{result}")
 

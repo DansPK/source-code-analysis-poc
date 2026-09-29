@@ -20,7 +20,9 @@ def main(argv: list[str] | None = None) -> int:
         prog="ask", description="Ask questions about a source project."
     )
     parser.add_argument("--path", required=True, metavar="PATH", help="Project to ask about")
-    parser.add_argument("question", nargs="*", help="Your question; omit for an interactive session")
+    parser.add_argument(
+        "question", nargs="*", help="Your question; omit to open the interactive TUI"
+    )
     args = parser.parse_args(argv)
 
     settings = get_settings()
@@ -37,20 +39,9 @@ def main(argv: list[str] | None = None) -> int:
         print(answer)
         return 0
 
-    print(f"Asking about {repository.root}. Ctrl-D or 'exit' to quit.\n")
-    transcript: list[str] = []
-    while True:
-        try:
-            question = input("> ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print()
-            return 0
-        if question in ("exit", "quit"):
-            return 0
-        if not question:
-            continue
-        answer, transcript = ask(client, repository, code_map, question, transcript)
-        print(f"\n{answer}\n")
+    from app.tui import AskTUI
+
+    return AskTUI(client, repository, code_map).run()
 
 
 if __name__ == "__main__":
