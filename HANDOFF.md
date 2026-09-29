@@ -30,6 +30,37 @@ file, then stop.** Do not start the next milestone in the same session.
   `SourceError` (CLI exit 2). Verified: `uv run pytest` → 18 passed, including a real clone of
   a repo the test creates on disk; `uv run scan --repo https://github.com/octocat/Hello-World.git`.
 
+## Evaluation against a real model (2026-09-29)
+
+First runs with a real key (DeepSeek `deepseek-flash`, OpenAI-compatible endpoint).
+
+**On the fixture:** Likely Vulnerable / High / High, ~11s, 3 LLM calls (analysis,
+explanation, remediation). The analysis was better than the canned one: it cited line
+numbers, noticed the docstring saying VULNERABLE, and recommended parameterization at the
+driver boundary *because* manual escaping handles LIKE wildcards badly.
+
+**On third-party code it had never seen** (`github.com/we45/Vulnerable-Flask-App`, 19 files):
+found the real SQL injection at `app/app.py:265`, correctly identified the source as
+`request.json['search']`, reconstructed the flow, and reasoned that exploitation requires a
+valid JWT because the endpoint is authenticated. ~18s end to end.
+
+**One bug this exposed, now fixed:** the validator downgraded a correct analysis because the
+model answered `routes/search.py:11 (q = request.args["q"])` instead of a bare path. The
+mock could never have caught it — the canned replies were written by the same hand as the
+validator, so they agreed with it by construction. **Treat mock-only agreement as unproven.**
+
+**Rule coverage is the real limit, not the architecture.** On that same project:
+
+| Rules | Findings |
+|---|---|
+| ours (`rules/semgrep/`, 1 rule) | 1 — the SQL injection |
+| `p/security-audit` (registry) | 10 — none of them the SQL injection |
+
+The registry ruleset *missed* the `%`-interpolation SQLi that our taint rule caught, and
+found 10 issues ours cannot see (cert validation, template injection, deserialization).
+Running both configs together is roughly a one-line change in `semgrep_scanner.scan()` and is
+the single highest-value improvement available.
+
 ## In progress
 
 Nothing mid-flight. **The POC is feature-complete** — every stage in the spec works, from a
