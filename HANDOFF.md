@@ -9,7 +9,7 @@ file, then stop.** Do not start the next milestone in the same session.
 
 ## Status
 
-- **Current milestone: M1 — Frozen data contracts** (not started)
+- **Current milestone: M2 — Source manager** (not started)
 - Last updated: 2026-09-29 by Claude Opus 5 (Claude Code)
 
 ## Done
@@ -19,23 +19,35 @@ file, then stop.** Do not start the next milestone in the same session.
   in `app/utils/logging.py`, CLI skeleton in `app/main.py`, and the vulnerable Flask fixture
   at `tests/vulnerable_samples/flask_app/`.
   Verified: `uv sync && uv run scan --help`; `uv run semgrep --version` → 1.178.0.
+- **M1 — Frozen data contracts.** `app/models/` complete and re-exported from
+  `app.models` (18 names). `Finding` (spec §5.5), `Repository`/`SourceFile`/`Symbol`/
+  `FileNode`/`CodeMap` (§5.2–5.3), `CodeExcerpt`/`FindingContext`/`AIAnalysis`/`ReportItem`/
+  `ScanReport` (§7–§13). Verified: `uv run pytest` → 24 passed.
 
 ## In progress
 
-Nothing mid-flight. M0 finished cleanly.
+Nothing mid-flight. M1 finished cleanly.
 
-**Next concrete step:** write `app/models/finding.py`, `repository.py`, `analysis.py` as
-specified in M1 of the plan, plus `tests/test_models.py`. Field lists come from the spec:
-§5.5 for `Finding`, §9 for `AIAnalysis`, §10 for the status/confidence enums. Use
-`Literal[...]` for those enums so an invalid LLM response fails validation instead of
-propagating.
+**Next concrete step:** M2 source manager — `app/source/local_loader.py`,
+`git_loader.py`, `loader.py`. `load_source()` returns a populated-enough `Repository`
+(at minimum `root`, and `origin` when cloned) for both input kinds; file discovery itself
+belongs to M3, so do not build it here. Clone shallow into `Settings.temp_dir`. Then wire
+`--path`/`--repo` in `main.py` far enough to print the resolved root.
 
 ## Frozen contracts
 
-Nothing is frozen yet — **M1 freezes `app/models/`**, and from that point every other module
-takes and returns those types. Once M1 lands, changing a model means updating every consumer
-listed here; keep that list current.
+**`app/models/` is frozen as of M1.** Import from `app.models`, not the submodules — that
+package's `__all__` is the contract surface. Changing a field means updating every consumer;
+keep this list current as consumers appear.
 
+- `Finding` — produced by `findings/parser.py` (M4), consumed by everything after it.
+- `Repository`, `CodeMap`, `FileNode`, `Symbol` — produced by `repository/analyzer.py` (M3),
+  consumed by `context/` (M5).
+- `FindingContext` — produced by `context/builder.py` (M5), rendered into a prompt by
+  `ai/prompts.py` (M6).
+- `AIAnalysis` — **this is the LLM's output schema.** Its `Literal` enums are what stop a
+  hallucinated verdict from reaching the report. Validator (M6) may only downgrade.
+- `ReportItem`, `ScanReport` — produced by `agent/` + `report/` (M7), serialized by the API (M8).
 - `Settings` (`app/config/settings.py`) — treat field *names* as stable; modules receive a
   `Settings` instance rather than reading the environment.
 - `run_scan()` in `app/main.py` — the single pipeline entry point. The CLI (M7) and the
@@ -58,10 +70,17 @@ listed here; keep that list current.
   never collected as tests.
 - Semgrep is installed as a Python package, so it is `uv run semgrep`, not a system binary.
   `SemgrepScanner.is_available()` (M4) must check accordingly.
+- All `file` fields on models are **relative to the repository root**; only `Repository.root`
+  is absolute. Keep it that way or reports and code-map lookups stop agreeing on paths.
+- `AIAnalysis.model_json_schema()` produces the exact §9 field list — M6 should embed that in
+  the system prompt rather than hand-writing the schema, so the two can never drift.
+- `CodeMap.defining_files()` returns a *list*: symbol resolution is by name only, so two files
+  defining `search()` both come back. Callers must handle ambiguity, not assume one hit.
+- `CodeMap.callers_of()` already excludes a file that calls a symbol it also defines; don't
+  re-filter that in M5.
 
 ## Next milestones
 
-- **M1** — Frozen data contracts in `app/models/`.
 - **M2** — Source manager: local + Git loaders converging on one pipeline entry.
 - **M3** — Repository analyzer and `ast`-based code map (Python only).
 - **M4** — Semgrep scanner, finding parser (the Semgrep isolation boundary), deduplicator.
