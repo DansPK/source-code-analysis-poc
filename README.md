@@ -191,6 +191,10 @@ The pipeline is complete. Its detection coverage is not.
 Out of scope by design: dynamic testing, exploitation, whole-program taint analysis,
 dependency and secret scanning, automatic patching, and CI/CD integration.
 
+## License
+
+[MIT](LICENSE)
+
 ## Tested against
 
 | Project | Files | Findings |
