@@ -3,9 +3,9 @@
 Full guidance lives in `AGENTS.md` at the repository root — read it before making
 non-trivial changes. Copilot cannot import files, so the essentials are repeated here.
 
-This repository is currently design-only: no source code yet, just the POC
-specification in `AI_Source_Code_Vulnerability_Scanner_POC.md` and the planned
-layout in `folder-structure.md`. Follow those rather than inventing a layout.
+Built in milestones — **read `HANDOFF.md` first** for which one is current and what is
+frozen. `AI_Source_Code_Vulnerability_Scanner_POC.md` is the authoritative spec and
+`folder-structure.md` fixes the layout; follow those rather than inventing one.
 
 **Keep it simple — this is a POC.** If you cannot name the caller, do not write it: no
 speculative fields, helpers, options or abstractions. Models are plain data; logic goes in the
