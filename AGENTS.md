@@ -85,6 +85,7 @@ The `.venv` was created with **uv** (Python 3.11). Use uv for dependency and run
 uv sync                                          # install from pyproject.toml
 uv add <pkg>                                     # add a dependency
 uv run scan --path <dir>                         # run the CLI pipeline
+uv tool install --force .                        # reinstall the `scan`/`ask` commands
 uv run scan-api                                  # run the FastAPI layer (docs at /docs)
 uv run pytest                                    # whole test suite
 uv run pytest tests/test_context.py              # one file

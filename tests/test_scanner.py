@@ -46,7 +46,7 @@ def test_finding_is_normalized(findings):
 
 def test_missing_rules_directory_is_reported_clearly():
     with pytest.raises(ScannerError, match="rules not found"):
-        scan(SAMPLE, "rules/does-not-exist")
+        scan(SAMPLE, "/nonexistent/rules")
 
 
 # --- parser and deduplicator, without running Semgrep --------------------------

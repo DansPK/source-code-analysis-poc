@@ -63,9 +63,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="scan", description="AI source-code vulnerability scanner (POC)."
     )
-    source = parser.add_mutually_exclusive_group(required=True)
+    source = parser.add_mutually_exclusive_group()
     source.add_argument("--repo", metavar="URL", help="Git repository URL to clone and scan")
-    source.add_argument("--path", metavar="PATH", help="Local directory or file to scan")
+    source.add_argument(
+        "--path", metavar="PATH",
+        help="Local directory or file to scan (default: the current directory)",
+    )
     parser.add_argument("--format", choices=("cli", "json"), default="cli", help="Report format")
     parser.add_argument("--out", metavar="DIR", help="Directory to write a JSON report into")
     args = parser.parse_args(argv)
@@ -73,13 +76,13 @@ def main(argv: list[str] | None = None) -> int:
     settings = get_settings()
 
     try:
-        report = run_scan(args.repo, args.path, settings)
+        report = run_scan(args.repo, args.path or (None if args.repo else "."), settings)
     except (SourceError, ScannerError, AIError) as exc:
         logger.error("%s", exc)
         return 2
 
     if args.format == "json" or args.out:
-        logger.info("Wrote %s", reporter.write_json(report, args.out or "reports"))
+        logger.info("Wrote %s", reporter.write_json(report, args.out or settings.reports_dir))
     if args.format == "cli":
         print(reporter.render_cli(report))
     return 0

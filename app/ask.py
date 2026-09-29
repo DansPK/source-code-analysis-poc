@@ -19,7 +19,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="ask", description="Ask questions about a source project."
     )
-    parser.add_argument("--path", required=True, metavar="PATH", help="Project to ask about")
+    parser.add_argument(
+        "--path", default=".", metavar="PATH",
+        help="Project to ask about (default: the current directory)",
+    )
     parser.add_argument(
         "question", nargs="*", help="Your question; omit to open the interactive TUI"
     )
