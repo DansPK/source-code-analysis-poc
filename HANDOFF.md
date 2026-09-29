@@ -9,7 +9,7 @@ file, then stop.** Do not start the next milestone in the same session.
 
 ## Status
 
-- **Current milestone: M4 — Static scanner and findings** (not started)
+- **Current milestone: M5 — Cross-file context investigator** (not started)
 - Last updated: 2026-09-29 by Claude Opus 5 (Claude Code)
 
 ## Done
@@ -32,13 +32,15 @@ file, then stop.** Do not start the next milestone in the same session.
 
 ## In progress
 
-Nothing mid-flight. M3 finished cleanly.
+Nothing mid-flight. M4 finished cleanly.
 
-**Next concrete step:** M4 static scanner — `scanners/base_scanner.py` (3-method ABC),
-`scanners/semgrep_scanner.py` (`subprocess` → `semgrep --json`), a custom rule in
-`rules/semgrep/`, `findings/parser.py` and `findings/deduplicator.py`. The parser is the
-Semgrep isolation boundary: raw JSON in, `list[Finding]` out, paths made relative to
-`repository.root`, snippet read from disk. Nothing downstream may see Semgrep's shapes.
+**Next concrete step:** M5 context investigator — `context/symbol_resolver.py` (finding line →
+enclosing function, using the `Symbol` line ranges from M3), `context/call_graph.py` (callers
+and callees from `CodeMap`, capped by `Settings.max_caller_depth`/`max_callee_depth`),
+`context/cross_file.py` (walk outward to an entry point, producing the ordered `flow_chain`),
+`context/builder.py` (assemble `FindingContext`, truncating excerpts to `max_snippet_lines`).
+Target: for the fixture's one finding, `flow_chain` is `routes/search.py →
+services/search_service.py → database/user_repository.py`.
 
 ## Frozen contracts
 
@@ -83,6 +85,21 @@ keep this list current as consumers appear.
   is absolute. Keep it that way or reports and code-map lookups stop agreeing on paths.
 - `AIAnalysis.model_json_schema()` produces the exact §9 field list — M6 should embed that in
   the system prompt rather than hand-writing the schema, so the two can never drift.
+- **Semgrep's defaults silently hide findings.** It scans only git-tracked files and applies a
+  built-in ignore list that excludes `tests/`. Scanning the fixture returned *zero* results
+  until `--no-git-ignore --x-ignore-semgrepignore-files` were added. The second flag is
+  experimental (`--x-`), so if a Semgrep upgrade drops it, the fixture tests fail loudly —
+  that is deliberate, and the fix is to find its replacement, not to move the fixture.
+- **Semgrep's `extra.lines` is the literal string "requires login"** in the OSS engine, so the
+  code snippet is read from disk by the parser. Never trust that field.
+- `check_id` comes back namespaced by the rules path (`rules.semgrep.python-sqli-concat`).
+  Kept as-is in `Finding.rule_id` because it is the scanner's real id; reports should lead with
+  `vulnerability_type` instead.
+- **No `base_scanner.py` ABC exists**, though `folder-structure.md` lists one. An abstract base
+  with a single implementation is the over-engineering AGENTS.md forbids, and it would not earn
+  its keep: scanner independence is already provided by `findings/parser.py`, which is where
+  the scanner's output shape stops mattering. Add the ABC when a second scanner actually
+  arrives and there is something to share.
 - Semgrep call names are stored **unqualified**: `cursor.execute(...)` is recorded as
   `execute`, not `cursor.execute`. M5 matches on that, so a common method name can collide
   across files — combine it with the import list rather than trusting it alone.

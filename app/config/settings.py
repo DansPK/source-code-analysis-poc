@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     max_snippet_lines: int = 40
 
     temp_dir: str = "temp"  # where Git clones land
+    semgrep_rules: str = "rules/semgrep"  # --config passed to Semgrep
 
 
 def get_settings() -> Settings:

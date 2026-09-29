@@ -1,0 +1,21 @@
+rules:
+  - id: python-sqli-concat
+    mode: taint
+    languages: [python]
+    severity: WARNING
+    message: >-
+      A SQL statement built by string concatenation or interpolation reaches a database
+      execute() call. If any part of that string is attacker-controlled the query can be
+      rewritten. Use a parameterized query instead.
+    metadata:
+      category: security
+      cwe: "CWE-89: SQL Injection"
+      vulnerability_type: SQL Injection
+    pattern-sources:
+      - pattern: "$A + $B"
+      - pattern: f"..."
+      - pattern: "$FMT.format(...)"
+      - pattern: "$FMT % $ARGS"
+    pattern-sinks:
+      - pattern: $CURSOR.execute(...)
+      - pattern: $CURSOR.executemany(...)

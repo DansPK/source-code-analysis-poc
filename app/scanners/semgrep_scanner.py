@@ -1,0 +1,59 @@
+"""Run Semgrep and hand back its raw JSON.
+
+This module is the only place that knows how Semgrep is invoked;
+`findings/parser.py` is the only place that knows what its output looks like.
+"""
+
+import json
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+from app.scanners import ScannerError
+from app.utils.logging import get_logger
+
+logger = get_logger(__name__)
+
+TIMEOUT_SECONDS = 600
+
+
+def _command() -> list[str]:
+    """Semgrep is a Python dependency here, so it may not be on PATH."""
+    binary = shutil.which("semgrep")
+    return [binary] if binary else [sys.executable, "-m", "semgrep"]
+
+
+def scan(root: Path, rules: str) -> dict:
+    """Scan `root` with the rules at `rules`, returning Semgrep's parsed JSON."""
+    if not Path(rules).exists():
+        raise ScannerError(f"Semgrep rules not found: {rules}")
+
+    command = [
+        *_command(), "scan", "--json", "--quiet",
+        # Semgrep defaults to git-tracked files only and applies a built-in ignore
+        # list that excludes tests/. We are scanning whatever the user pointed at,
+        # so both defaults have to go or findings silently disappear.
+        "--no-git-ignore", "--x-ignore-semgrepignore-files",
+        "--config", rules, str(root),
+    ]
+    logger.info("Running Semgrep on %s", root)
+
+    try:
+        result = subprocess.run(
+            command, capture_output=True, text=True, timeout=TIMEOUT_SECONDS
+        )
+    except FileNotFoundError as exc:
+        raise ScannerError("Semgrep is not installed. Run `uv sync`.") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise ScannerError(f"Semgrep timed out after {TIMEOUT_SECONDS}s on {root}") from exc
+
+    # Semgrep uses exit code 1 for "findings were reported"; 2 and above are failures.
+    if result.returncode >= 2:
+        detail = (result.stderr or result.stdout or "").strip().splitlines()
+        raise ScannerError(f"Semgrep failed: {detail[-1] if detail else result.returncode}")
+
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise ScannerError(f"Semgrep returned output that is not JSON: {exc}") from exc

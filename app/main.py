@@ -9,9 +9,14 @@ later milestones (see HANDOFF.md).
 
 import argparse
 import sys
+from pathlib import Path
 
 from app.config.settings import Settings, get_settings
+from app.findings.deduplicator import deduplicate
+from app.findings.parser import parse_semgrep
 from app.repository.analyzer import analyze
+from app.scanners import ScannerError
+from app.scanners.semgrep_scanner import scan
 from app.source import SourceError
 from app.source.loader import load_source
 from app.utils.logging import get_logger
@@ -31,7 +36,11 @@ def run_scan(repo: str | None, path: str | None, settings: Settings):
 
     code_map = analyze(repository)
 
-    raise NotImplementedError("Pipeline stages land in M4-M7; see HANDOFF.md.")
+    payload = scan(Path(repository.root), settings.semgrep_rules)
+    findings = deduplicate(parse_semgrep(payload, Path(repository.root)))
+    logger.info("Candidate findings: %d", len(findings))
+
+    raise NotImplementedError("Pipeline stages land in M5-M7; see HANDOFF.md.")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -50,7 +59,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         run_scan(args.repo, args.path, settings)
-    except SourceError as exc:
+    except (SourceError, ScannerError) as exc:
         logger.error("%s", exc)
         return 2
     except NotImplementedError as exc:
