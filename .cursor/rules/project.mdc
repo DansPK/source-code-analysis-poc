@@ -1,0 +1,20 @@
+---
+description: Canonical project guidance for the AI source-code vulnerability scanner POC
+alwaysApply: true
+---
+
+Read `AGENTS.md` at the repository root before making non-trivial changes — it is the
+canonical instruction file for all AI agents in this repo and covers the project state,
+the uv-based toolchain, and the pipeline invariants.
+
+Key points, in case `AGENTS.md` has not been read yet:
+
+- Design-only repo so far. `AI_Source_Code_Vulnerability_Scanner_POC.md` is the
+  authoritative spec; `folder-structure.md` fixes the package layout under `app/`.
+- Python 3.11 via uv: `uv sync`, `uv add <pkg>`, `uv run pytest`.
+- Staged pipeline: Source Manager → Repository Analyzer → Semgrep → Finding Parser →
+  Context Investigator → AI Analyzer → Validator → AI Agent → Report Engine. Keep the
+  stages separate.
+- Semgrep detects candidates; the LLM only judges them. `findings/parser.py` is the
+  scanner-isolation boundary. Cross-file context is bounded to 1–2 caller/callee levels.
+  The Validator preserves uncertainty; the Agent recommends fixes but never patches.
