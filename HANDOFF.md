@@ -134,12 +134,12 @@ keep this list current as consumers appear.
 - `ReportItem.id` (`VULN-001`) is the user-facing id and is assigned by the agent;
   `Finding.id` (`F-001`) is the scanner's internal one. They are deliberately separate — after
   deduplication the F-numbers have gaps, which would look like missing findings in a report.
-- **The tool is installable (`uv tool install .`) and runs with no arguments**, defaulting to
-  the current directory. That forced two changes: Semgrep rules moved to `app/rules/semgrep`
-  so they ship inside the package (`PACKAGE_ROOT`), and clones, reports and config moved to
-  `~/.ask` (`USER_DIR`). Nothing may be written relative to the cwd — the tool runs from
-  inside other people's projects. After changing code, `uv tool install --force .` to update
-  the installed copy.
+- **Everything written goes to `workspace/`** in the checkout (`settings.WORKSPACE`): clones
+  in `projects/`, reports in `reports/`, `ask` conversations in `sessions/`. Nothing may be
+  written outside the checkout, into the user's home, or into the project being examined.
+  Semgrep rules ship in `app/rules/semgrep/`, resolved from `PACKAGE_ROOT`.
+- The tool was briefly installed system-wide with `uv tool install`; that was reverted, and
+  the project is run with `uv run` from the checkout. Do not install it without asking.
 - **Configured paths resolve against the project, not the cwd** (`settings.project_path()`).
   The scanner is pointed at other people's code, so it is routinely run from elsewhere;
   `rules/semgrep`, `temp/` and the mock responses all broke when run from `/tmp` before this.

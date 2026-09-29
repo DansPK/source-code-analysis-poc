@@ -2,9 +2,9 @@
 
 Two kinds of history, both on disk:
 
-- input history (`.ask/input_history`) gives arrow-key recall across runs
-- conversations (`.ask/sessions/<name>.json`) are saved after every exchange, so a
-  session can be resumed and the model keeps its earlier context
+- input history (`workspace/input_history`) gives arrow-key recall across runs
+- conversations (`workspace/sessions/<project>/<name>.json`) are saved after every
+  exchange, so a session can be resumed and the model keeps its earlier context
 
 Conversations are stored per project, keyed by the project root, so asking about two
 codebases does not mix them.
@@ -24,16 +24,15 @@ from rich.panel import Panel
 
 from app.agent.ask import ask
 from app.ai.client import LLMClient
+from app.config.settings import WORKSPACE
 from app.models import CodeMap, Repository
-
-HOME = Path.home() / ".ask"
 COMMANDS = ["/help", "/clear", "/sessions", "/resume", "/history", "/files", "/exit"]
 
 
 def _session_dir(repository: Repository) -> Path:
-    """One directory per project, named after the root so projects stay separate."""
+    """One directory per project examined, so conversations never mix."""
     digest = hashlib.sha256(repository.root.encode()).hexdigest()[:8]
-    return HOME / "sessions" / f"{Path(repository.root).name}-{digest}"
+    return WORKSPACE / "sessions" / f"{Path(repository.root).name}-{digest}"
 
 
 class AskTUI:
@@ -46,9 +45,9 @@ class AskTUI:
         self.sessions.mkdir(parents=True, exist_ok=True)
         self.session_file = self.sessions / f"{datetime.now():%Y%m%d-%H%M%S}.json"
 
-        HOME.mkdir(parents=True, exist_ok=True)
+        WORKSPACE.mkdir(parents=True, exist_ok=True)
         self.prompt = PromptSession(
-            history=FileHistory(str(HOME / "input_history")),
+            history=FileHistory(str(WORKSPACE / "input_history")),
             completer=WordCompleter(COMMANDS, sentence=True),
         )
 

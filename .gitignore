@@ -3,8 +3,13 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .env
-temp/*
-!temp/.gitkeep
-reports/*
-!reports/.gitkeep
+workspace/*
+!workspace/README.md
+!workspace/projects/
+!workspace/reports/
+!workspace/sessions/
+workspace/projects/*
+workspace/reports/*
+workspace/sessions/*
+!workspace/*/.gitkeep
 .idea/

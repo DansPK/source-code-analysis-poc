@@ -85,7 +85,6 @@ The `.venv` was created with **uv** (Python 3.11). Use uv for dependency and run
 uv sync                                          # install from pyproject.toml
 uv add <pkg>                                     # add a dependency
 uv run scan --path <dir>                         # run the CLI pipeline
-uv tool install --force .                        # reinstall the `scan`/`ask` commands
 uv run scan-api                                  # run the FastAPI layer (docs at /docs)
 uv run pytest                                    # whole test suite
 uv run pytest tests/test_context.py              # one file
@@ -123,7 +122,7 @@ Key invariants that span multiple modules:
   `ai/client.py` (any OpenAI-compatible `base_url`). No module may import a vendor
   SDK directly.
 
-Both Git-URL and local-path inputs must converge on the same internal pipeline after `source/`. Cloned repos go to `temp/`; `reports/` holds generated output; custom Semgrep rules live in `rules/semgrep/`.
+Both Git-URL and local-path inputs must converge on the same internal pipeline after `source/`. Everything the tool writes goes to `workspace/` in the checkout: clones in `workspace/projects/`, reports in `workspace/reports/`, `ask` conversations in `workspace/sessions/`. **Never write outside the checkout or into the project being examined.** Semgrep rules ship in `app/rules/semgrep/`.
 
 ## Testing approach
 

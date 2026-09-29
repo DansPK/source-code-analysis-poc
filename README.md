@@ -68,14 +68,12 @@ Semgrep is installed as a Python dependency.
 
 ## Installation
 
-Install as a command available anywhere:
-
 ```bash
-uv tool install .
+uv sync
+cp .env.example .env
 ```
 
-This puts `scan`, `ask` and `scan-api` in `~/.local/bin`, each in an isolated environment.
-Configure the model in `~/.ask/.env`:
+Set the model configuration in `.env`:
 
 ```ini
 LLM_BASE_URL=https://api.deepseek.com
@@ -83,11 +81,10 @@ LLM_API_KEY=sk-...
 LLM_MODEL=deepseek-chat
 ```
 
-For development from a source checkout, `uv sync` and a `.env` in the project directory work
-the same way and take precedence.
-
-The tool keeps its own files under `~/.ask`: configuration, cloned repositories, reports and
-conversation history. Nothing is written into the project being scanned.
+Everything the tool writes goes to `workspace/` inside the checkout: cloned repositories in
+`workspace/projects/`, JSON reports in `workspace/reports/`, and saved `ask` conversations in
+`workspace/sessions/`. Nothing is written outside the checkout or into the project being
+examined.
 
 Optional settings: `MAX_CALLER_DEPTH` and `MAX_CALLEE_DEPTH` (default `2`) set how many
 levels of callers and callees are gathered, `MAX_SNIPPET_LINES` (`40`) truncates each code
@@ -97,13 +94,13 @@ excerpt, `SEMGREP_RULES` and `TEMP_DIR` set paths, and
 ## Usage
 
 ```bash
-scan                                          # the current directory
-scan --path /path/to/project
-scan --path app/services/user.py              # single file
-scan --repo https://github.com/stamparm/DSVW
+uv run scan --path workspace/projects/DSVW
+uv run scan --path /path/to/project
+uv run scan --path app/services/user.py       # single file
+uv run scan --repo https://github.com/stamparm/DSVW   # clones into workspace/projects/
 
-scan --format json                            # writes ~/.ask/reports/scan-<timestamp>.json
-scan --out /tmp/reports                       # writes to a chosen directory
+uv run scan --path <dir> --format json        # writes workspace/reports/scan-<timestamp>.json
+uv run scan --path <dir> --out /tmp/reports   # writes to a chosen directory
 ```
 
 `--format json` replaces the terminal output. Pass `--out` on its own to get both.
@@ -112,7 +109,7 @@ The HTTP API returns the same report. Scans run synchronously and can take sever
 on a large repository.
 
 ```bash
-scan-api             # http://localhost:8000, OpenAPI docs at /docs
+uv run scan-api      # http://localhost:8000, OpenAPI docs at /docs
 
 curl -X POST localhost:8000/scan -H 'content-type: application/json' \
      -d '{"path": "/path/to/project"}'
@@ -125,13 +122,13 @@ one step at a time using four tools (list files, read a file, regex search, find
 definition and callers) and answers from what it read.
 
 ```bash
-ask "where does user input reach the database?"
-ask                                           # interactive terminal UI
+uv run ask --path <dir> "where does user input reach the database?"
+uv run ask --path <dir>                       # interactive terminal UI
 ```
 
 Without a question it opens a terminal UI with tool calls shown as they run, markdown
 answers, and two kinds of persistent history: arrow-key recall of past input, and saved
-conversations kept per project under `~/.ask/sessions/`. Commands are `/help`, `/clear`, `/sessions`,
+conversations kept per project under `workspace/sessions/`. Commands are `/help`, `/clear`, `/sessions`,
 `/resume [name]`, `/history`, `/files` and `/exit`.
 
 ## Output
@@ -183,6 +180,7 @@ app/
 
 app/rules/semgrep/          detection rules, shipped with the package
 tests/vulnerable_samples/   intentionally vulnerable applications used as ground truth
+workspace/                  everything the tool writes: clones, reports, conversations
 ```
 
 ## Development
