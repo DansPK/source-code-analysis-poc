@@ -105,7 +105,7 @@ Each stage does one job and hands on a plain data structure:
 
 - Python 3.11 or later
 - [uv](https://docs.astral.sh/uv/)
-- An API key for any OpenAI-compatible LLM endpoint (optional; see mock mode)
+- An API key for any OpenAI-compatible LLM endpoint
 
 Semgrep is installed as a Python dependency, so no separate installation is needed.
 
@@ -119,14 +119,12 @@ cp .env.example .env
 Edit `.env`:
 
 ```ini
-LLM_MOCK=0
 LLM_BASE_URL=https://api.deepseek.com
 LLM_API_KEY=sk-...
 LLM_MODEL=deepseek-chat
 ```
 
-Any OpenAI-compatible provider works. Leaving `LLM_MOCK=1` runs the entire pipeline against
-canned responses, with no key and no network calls to a model.
+Any OpenAI-compatible provider works. A key is required: every scan calls the model.
 
 ## Usage
 
@@ -147,12 +145,6 @@ uv run scan --path <dir> --out /tmp/reports     # writes to a chosen directory
 
 `--format json` replaces the terminal output. To get both, pass `--out` and keep the default
 format.
-
-Run without spending API credits:
-
-```bash
-uv run scan --path <dir> --mock
-```
 
 ### HTTP API
 
@@ -175,9 +167,8 @@ All settings can be set in `.env` or the environment.
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `LLM_MOCK` | `1` | Use canned responses instead of a real model |
 | `LLM_BASE_URL` | OpenAI | Any OpenAI-compatible endpoint |
-| `LLM_API_KEY` | — | Required unless `LLM_MOCK=1` |
+| `LLM_API_KEY` | — | Required |
 | `LLM_MODEL` | `gpt-4o-mini` | Model name |
 | `MAX_CALLER_DEPTH` | `2` | Levels of callers gathered as context |
 | `MAX_CALLEE_DEPTH` | `2` | Levels of callees gathered as context |
@@ -265,8 +256,8 @@ uv run pytest tests/test_context.py              # one file
 uv run pytest tests/test_context.py::test_name   # one test
 ```
 
-Every test runs against canned LLM responses, so the suite needs no API key and makes no
-network calls.
+The LLM is stubbed at the client boundary in tests, so the suite needs no API key and makes
+no network calls.
 
 Contributors, human or AI, should read [`AGENTS.md`](AGENTS.md) for the working conventions
 and [`HANDOFF.md`](HANDOFF.md) for current state and known pitfalls.

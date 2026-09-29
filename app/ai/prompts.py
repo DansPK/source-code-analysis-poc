@@ -1,8 +1,7 @@
 """The prompts. All wording lives here.
 
-Each user prompt opens with a `TASK:` line naming what is being asked. That keeps the
-three jobs distinguishable -- including to `MockClient`, which keys its canned replies
-off it.
+Each user prompt opens with a `TASK:` line naming what is being asked, so the three jobs
+stay distinguishable in logs and in test stubs.
 
 The analysis schema is derived from `AIAnalysis` rather than written out, so the prompt
 and the model it must validate against cannot drift apart.

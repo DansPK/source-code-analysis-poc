@@ -68,12 +68,9 @@ def main(argv: list[str] | None = None) -> int:
     source.add_argument("--path", metavar="PATH", help="Local directory or file to scan")
     parser.add_argument("--format", choices=("cli", "json"), default="cli", help="Report format")
     parser.add_argument("--out", metavar="DIR", help="Directory to write a JSON report into")
-    parser.add_argument("--mock", action="store_true", help="Use canned LLM responses (no API key)")
     args = parser.parse_args(argv)
 
     settings = get_settings()
-    if args.mock:
-        settings.llm_mock = True
 
     try:
         report = run_scan(args.repo, args.path, settings)

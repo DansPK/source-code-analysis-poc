@@ -10,9 +10,6 @@ from pydantic import BaseModel, Field, model_validator
 class ScanRequest(BaseModel):
     repo_url: str | None = Field(default=None, description="Git repository URL to clone")
     path: str | None = Field(default=None, description="Local directory or file on the server")
-    mock: bool | None = Field(
-        default=None, description="Use canned LLM responses; omit to follow the server config"
-    )
 
     @model_validator(mode="after")
     def exactly_one_source(self):

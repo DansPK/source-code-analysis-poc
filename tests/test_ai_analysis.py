@@ -7,7 +7,7 @@ import pytest
 
 from app.ai import AIError
 from app.ai.analyzer import analyze
-from app.ai.client import MockClient, OpenAICompatibleClient, get_client
+from app.ai.client import OpenAICompatibleClient
 from app.ai.prompts import SYSTEM_PROMPT, render_context
 from app.ai.validator import validate
 from app.config.settings import Settings
@@ -165,19 +165,9 @@ def test_validator_never_raises_a_verdict(context, repository):
 # --- client and prompt ----------------------------------------------------------
 
 
-def test_mock_client_matches_on_vulnerability_type():
-    client = MockClient()
-    assert client.complete_json("", "FINDING: SQL Injection")["severity"] == "High"
-    assert client.complete_json("", "FINDING: Odd Thing")["status"] == "Needs Manual Review"
-
-
-def test_mock_is_selected_by_settings():
-    assert isinstance(get_client(Settings(llm_mock=True)), MockClient)
-
-
 def test_real_client_without_a_key_says_what_to_do():
-    with pytest.raises(AIError, match="--mock"):
-        OpenAICompatibleClient(Settings(llm_mock=False, llm_api_key=""))
+    with pytest.raises(AIError, match="LLM_API_KEY"):
+        OpenAICompatibleClient(Settings(llm_api_key=""))
 
 
 def test_prompt_lists_the_allowed_values_from_the_model():

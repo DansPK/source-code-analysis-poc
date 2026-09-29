@@ -29,6 +29,19 @@ ANALYSIS = AIAnalysis(
 )
 
 
+STUB_REPLY = {
+    "vulnerability_type": "SQL Injection",
+    "status": "Likely Vulnerable",
+    "severity": "High",
+    "confidence": "High",
+    "evidence": "Concatenated into the statement with no parameterization.",
+    "protection_found": "None found.",
+    "impact": "Arbitrary rows readable.",
+    "explanation": "The request value reaches the query unchanged.",
+    "suggested_fix": "Use a parameterized query in the repository layer.",
+}
+
+
 class FakeClient:
     def __init__(self, reply=None, error=None):
         self.reply, self.error = reply or {}, error
@@ -147,9 +160,12 @@ def test_json_report_round_trips(tmp_path):
 # --- end to end -----------------------------------------------------------------
 
 
-def test_full_pipeline_on_the_fixture():
-    """Every stage, source to report, with no API key."""
-    report = run_scan(None, "tests/vulnerable_samples/flask_app", Settings(llm_mock=True))
+def test_full_pipeline_on_the_fixture(monkeypatch):
+    """Every stage, source to report. The LLM is stubbed at the client boundary so the
+    test stays offline and deterministic -- it exercises the pipeline, not the model."""
+    monkeypatch.setattr("app.main.get_client", lambda settings: FakeClient(STUB_REPLY))
+
+    report = run_scan(None, "tests/vulnerable_samples/flask_app", Settings())
 
     assert report.candidates_found == 1
     found = report.items[0]

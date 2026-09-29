@@ -20,8 +20,7 @@ def project_path(value: str) -> Path:
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    # Any OpenAI-compatible endpoint. With llm_mock the pipeline runs without a key.
-    llm_mock: bool = True
+    # Any OpenAI-compatible endpoint.
     llm_base_url: str = "https://api.openai.com/v1"
     llm_api_key: str = ""
     llm_model: str = "gpt-4o-mini"

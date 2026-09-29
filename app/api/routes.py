@@ -31,12 +31,8 @@ def scan(request: ScanRequest) -> ScanReport:
     and the server stays responsive. Background jobs with a job store are deliberately
     out of scope for the POC.
     """
-    settings = get_settings()
-    if request.mock is not None:
-        settings.llm_mock = request.mock
-
     try:
-        return run_scan(request.repo_url, request.path, settings)
+        return run_scan(request.repo_url, request.path, get_settings())
     except SourceError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except (ScannerError, AIError) as exc:

@@ -127,9 +127,10 @@ keep this list current as consumers appear.
   with a request or `/openapi.json`, not by reading `app.routes`.
 - The API deliberately has no job store: `POST /scan` runs the scan synchronously in
   FastAPI's threadpool. Fine for a demo, not for a real repository.
-- Mock replies are keyed by the prompt's `TASK:` line, then by vulnerability type
-  (`tests/fixtures/mock_responses.json`). Adding a prompt means adding a task section there,
-  or `MockClient` falls back to the analysis replies.
+- **The mock LLM client was removed.** There is no `--mock` flag, no `LLM_MOCK` setting and
+  no canned-response file: every scan calls a real model. Tests stay offline by stubbing at
+  the client boundary — `monkeypatch.setattr("app.main.get_client", lambda s: StubClient())`.
+  Keep new tests doing the same; the suite must never need a key or the network.
 - `ReportItem.id` (`VULN-001`) is the user-facing id and is assigned by the agent;
   `Finding.id` (`F-001`) is the scanner's internal one. They are deliberately separate — after
   deduplication the F-numbers have gaps, which would look like missing findings in a report.

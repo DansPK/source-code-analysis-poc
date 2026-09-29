@@ -84,7 +84,7 @@ The `.venv` was created with **uv** (Python 3.11). Use uv for dependency and run
 ```bash
 uv sync                                          # install from pyproject.toml
 uv add <pkg>                                     # add a dependency
-uv run scan --path <dir> --mock                  # run the CLI pipeline
+uv run scan --path <dir>                         # run the CLI pipeline
 uv run scan-api                                  # run the FastAPI layer (docs at /docs)
 uv run pytest                                    # whole test suite
 uv run pytest tests/test_context.py              # one file
@@ -92,8 +92,9 @@ uv run pytest tests/test_context.py::test_name   # one test
 uv run semgrep --version                         # Semgrep is a Python dep, not a system binary
 ```
 
-Copy `.env.example` to `.env`. `LLM_MOCK=1` runs the whole pipeline on canned responses with
-no API key — keep every test runnable that way. No linter or formatter is configured; if you
+Copy `.env.example` to `.env` and set `LLM_API_KEY`; every scan calls the model. Tests stub
+the LLM at the client boundary (`monkeypatch.setattr("app.main.get_client", ...)`) — keep the
+suite runnable with no key and no network. No linter or formatter is configured; if you
 add one, declare it in `pyproject.toml` and document the command here.
 
 ## Architecture
@@ -118,7 +119,7 @@ Key invariants that span multiple modules:
 - **`run_scan()` in `app/main.py` is the only pipeline entry point.** The CLI and the FastAPI
   layer (`app/api/`) are thin adapters over it. No pipeline logic belongs in either adapter.
 - **The LLM backend is provider-agnostic.** Everything goes through the `LLMClient` protocol in
-  `ai/client.py` (OpenAI-compatible `base_url`, or `MockClient`). No module may import a vendor
+  `ai/client.py` (any OpenAI-compatible `base_url`). No module may import a vendor
   SDK directly.
 
 Both Git-URL and local-path inputs must converge on the same internal pipeline after `source/`. Cloned repos go to `temp/`; `reports/` holds generated output; custom Semgrep rules live in `rules/semgrep/`.
@@ -132,4 +133,4 @@ files, was the source/sink pair correct, and did the AI classify it correctly (s
 Test the behaviour the next milestone depends on, not the library. Pydantic already validates
 its own types — a test asserting that `int` rejects `"abc"` is noise, while one asserting that
 an invented vulnerability status is rejected protects the report from a hallucinating model.
-Every test must pass with `LLM_MOCK=1` and no API key.
+Every test must pass with no API key, by stubbing the client.

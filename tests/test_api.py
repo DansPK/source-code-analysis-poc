@@ -8,8 +8,29 @@ from app.api.server import create_app
 SAMPLE = "tests/vulnerable_samples/flask_app"
 
 
-@pytest.fixture(scope="module")
-def client():
+STUB_REPLY = {
+    "vulnerability_type": "SQL Injection",
+    "status": "Likely Vulnerable",
+    "severity": "High",
+    "confidence": "High",
+    "evidence": "Concatenated with no parameterization.",
+    "protection_found": "None.",
+    "impact": "Rows readable.",
+    "explanation": "The request value reaches the query unchanged.",
+    "suggested_fix": "Use a parameterized query.",
+}
+
+
+class StubClient:
+    def complete_json(self, system, user):
+        return STUB_REPLY
+
+
+@pytest.fixture
+def client(monkeypatch):
+    """The LLM is stubbed at the client boundary: these tests check transport,
+    not the model."""
+    monkeypatch.setattr("app.main.get_client", lambda settings: StubClient())
     return TestClient(create_app())
 
 
@@ -18,7 +39,7 @@ def test_health(client):
 
 
 def test_scan_returns_the_same_report_the_cli_produces(client):
-    response = client.post("/scan", json={"path": SAMPLE, "mock": True})
+    response = client.post("/scan", json={"path": SAMPLE})
 
     assert response.status_code == 200
     report = response.json()
@@ -42,7 +63,7 @@ def test_request_must_name_exactly_one_source(client, payload):
 
 
 def test_bad_path_is_a_client_error(client):
-    response = client.post("/scan", json={"path": "/no/such/place", "mock": True})
+    response = client.post("/scan", json={"path": "/no/such/place"})
     assert response.status_code == 400
     assert "does not exist" in response.json()["detail"]
 
