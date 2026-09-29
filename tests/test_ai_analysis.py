@@ -193,3 +193,33 @@ def test_rendered_context_carries_the_cross_file_chain(context, repository):
     assert "routes/search.py -> services/search_service.py" in rendered
     assert "python using flask" in rendered
     assert "database/user_repository.py:17" in rendered
+
+
+# --- validator: forms a real model actually answers in ---------------------------
+
+
+@pytest.mark.parametrize(
+    "step",
+    [
+        "routes/search.py",
+        "routes/search.py:11",
+        'routes/search.py:11 (q = request.args["q"])',
+        "`routes/search.py`",
+        "the value arrives from an HTTP request",  # prose, names no file
+    ],
+    ids=["bare", "with line", "with description", "quoted", "prose"],
+)
+def test_real_answer_shapes_are_not_downgraded(context, repository, step):
+    """DeepSeek answers with file:line plus a description. Punishing the more
+    informative answer is worse than not checking at all."""
+    analysis = AIAnalysis.model_validate(GOOD_RESPONSE | {"data_flow": [step]})
+    assert validate(analysis, context, repository).status == "Likely Vulnerable"
+
+
+@pytest.mark.parametrize(
+    "step",
+    ["app/imaginary.py", "app/imaginary.py:42 (invented)", "src/nope.py"],
+)
+def test_invented_files_are_still_caught_in_any_shape(context, repository, step):
+    analysis = AIAnalysis.model_validate(GOOD_RESPONSE | {"data_flow": [step]})
+    assert validate(analysis, context, repository).status == "Needs Manual Review"
