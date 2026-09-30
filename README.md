@@ -131,6 +131,19 @@ uv run --directory /path/to/this/repo scan-mcp   # from anywhere, using this rep
 
 Paths must be absolute. Logs go to stderr.
 
+Both tools stream while they run, as MCP progress notifications whose `message` is one JSON
+event. A client that sends a progress token (in the TypeScript SDK, by passing `onprogress`)
+receives:
+
+| Tool | Event |
+| --- | --- |
+| `scan` | `{"type": "finding", "total": <candidates>, "item": <report item>}` as each finding is judged |
+| `ask` | `{"type": "step", "tool", "args", "why"}` as the agent uses a tool |
+| `ask` | `{"type": "token", "text"}` for each piece of the answer as the model writes it |
+
+The final result is the same with or without streaming; a client that asks for no progress
+gets none.
+
 ### Asking questions
 
 `ask` answers questions about a project instead of scanning it. The model explores the code

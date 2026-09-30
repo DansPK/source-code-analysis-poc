@@ -6,6 +6,7 @@ layer in `app/api/` are both thin adapters over it -- keep it that way.
 
 import argparse
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 from app.agent.security_agent import report_item
@@ -17,7 +18,7 @@ from app.config.settings import Settings, get_settings
 from app.context.builder import build_context
 from app.findings.deduplicator import deduplicate
 from app.findings.parser import parse_semgrep
-from app.models import ScanReport
+from app.models import ReportItem, ScanReport
 from app.report import reporter
 from app.repository.analyzer import analyze
 from app.scanners import ScannerError
@@ -29,8 +30,17 @@ from app.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
-def run_scan(repo: str | None, path: str | None, settings: Settings) -> ScanReport:
-    """Run the full pipeline. The stage order is the spec's, and stays visible here."""
+def run_scan(
+    repo: str | None,
+    path: str | None,
+    settings: Settings,
+    on_item: Callable[[ReportItem, int], None] | None = None,
+) -> ScanReport:
+    """Run the full pipeline. The stage order is the spec's, and stays visible here.
+
+    `on_item` receives each finding as soon as it is judged, with the number of
+    candidates, so the MCP server can stream results during a scan that takes minutes.
+    """
     repository = load_source(repo, path, settings)
     logger.info("Source: %s", repository.root)
 
@@ -50,6 +60,8 @@ def run_scan(repo: str | None, path: str | None, settings: Settings) -> ScanRepo
             "  %s: %s (%s severity, %s confidence)",
             items[-1].id, analysis.status, analysis.severity, analysis.confidence,
         )
+        if on_item:
+            on_item(items[-1], len(findings))
 
     return ScanReport(
         repository_root=repository.root,

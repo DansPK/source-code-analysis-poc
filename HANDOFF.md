@@ -9,8 +9,9 @@ file, then stop.** Do not start the next milestone in the same session.
 
 ## Status
 
-- **All milestones complete (M0–M10).** The POC pipeline works end to end; M9 added an MCP
-  server for the VS Code extension; M10 made the code map and rules multi-language.
+- **All milestones complete (M0–M11).** The POC pipeline works end to end; M9 added an MCP
+  server for the VS Code extension; M10 made the code map and rules multi-language; M11
+  streams scan findings and ask answers over MCP.
 - Last updated: 2026-09-30 by Claude Opus 5.5 (Claude Code)
 
 ## Done
@@ -49,6 +50,15 @@ file, then stop.** Do not start the next milestone in the same session.
   `SKIP_DIRS` adds build output (`target`, `.gradle`, `obj`, `.next`, …) and coding-agent
   worktrees (`.claude`, `.kilo`, `.worktrees`). Verified: `uv run pytest` → 123 passed;
   on a real 420-file Spring project the map builds in ~1.6s and detects Spring.
+
+- **M11 — Streaming over MCP.** The MCP tools are now `async` wrappers that run the
+  unchanged synchronous pipeline in a worker thread (`anyio.to_thread.run_sync`) and forward
+  events as progress notifications (`message` = one JSON event; format in README "MCP
+  server"). `run_scan()` gained an optional `on_item(item, total)` callback; `ask` already had
+  `on_step`/`on_token` (used by the TUI). Verified: `uv run pytest` → 126 passed (new:
+  `test_scan_streams_each_finding_before_the_report`, `test_ask_streams_the_answer_as_it_is_written`,
+  `test_context_is_not_a_tool_argument`); live against a real model via the VS Code extension's
+  client, the first finding arrived ~11s before the report and 91 answer pieces streamed.
 
 ## Evaluation against a real model (2026-09-29)
 
@@ -265,6 +275,16 @@ keep this list current as consumers appear.
   (`(JdbcTemplate $J).update(...)`) for those. Check a new rule against safe code too.
 - Running Semgrep by hand on `tests/vulnerable_samples` needs `--no-git-ignore
   --x-ignore-semgrepignore-files`, or its built-in ignore of `tests/` returns 0 results.
+
+- **Supersedes "MCP tools are synchronous" above (M11).** The tools are async wrappers; the
+  pipeline still runs synchronously, in a worker thread, so the event loop stays free to send
+  progress notifications and to serve other requests. Emitting from the thread must go through
+  `anyio.from_thread.run(ctx.report_progress, ...)`. Cancelling a request does not stop the
+  thread — the VS Code extension still kills the server process to stop a scan.
+- Progress values must strictly increase per request, so `_emitter` counts events; the
+  numbers mean nothing else. Without a client progress token `report_progress` is a no-op.
+- Passing `on_step` to `ask()` replaces its `step N:` log line, so stderr no longer shows ask
+  steps when called over MCP; the step events carry them instead.
 
 ## Next milestones
 
