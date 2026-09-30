@@ -36,8 +36,12 @@ class Settings(BaseSettings):
     temp_dir: str = str(WORKSPACE / "projects")  # where Git clones land
     reports_dir: str = str(WORKSPACE / "reports")
     # Comma-separated Semgrep configs. Registry packs cover every language Semgrep
-    # supports; the bundled directory holds our own rules.
-    semgrep_configs: str = f"p/security-audit,p/secrets,{PACKAGE_ROOT / 'rules' / 'semgrep'}"
+    # supports -- `p/security-audit` alone finds nothing in many Java projects, so the
+    # broader `p/default` and `p/owasp-top-ten` run too (Semgrep drops rules the packs
+    # share). The bundled directory holds our own rules and stays last.
+    semgrep_configs: str = (
+        f"p/security-audit,p/default,p/owasp-top-ten,p/secrets,{PACKAGE_ROOT / 'rules' / 'semgrep'}"
+    )
 
     api_host: str = "127.0.0.1"
     api_port: int = 8000

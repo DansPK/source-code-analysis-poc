@@ -43,12 +43,14 @@ Concretely:
 - Models in `app/models/` are **plain data — no methods, no properties.** Logic lives in the
   module whose job it is: "which function contains this line" is `context/symbol_resolver.py`,
   not a method on `FileNode`.
-- Don't wrap what already works. `subprocess.run`, `ast.walk` and `pathlib` are fine used
-  directly; a wrapper that only forwards arguments is noise.
+- Don't wrap what already works. `subprocess.run`, tree-sitter nodes and `pathlib` are fine
+  used directly; a wrapper that only forwards arguments is noise.
 - Handle the error you can actually act on. No broad `try/except` that hides a bug, no
   defensive checks for states that cannot occur.
-- Python only, stdlib `ast` for parsing — no tree-sitter. Add a dependency only when a
-  milestone names it.
+- The tool itself is Python only. The code under scan is parsed with tree-sitter
+  (`tree-sitter-language-pack`, M10): one shared walk over a table of node types per language
+  in `repository/code_map.py` — add a language by adding a row, not a parser. Add a
+  dependency only when a milestone names it.
 - Comments explain *why*, not *what*. Code that needs a comment to say what it does should be
   rewritten instead.
 - Every module's public surface is a function taking and returning `app/models/` types. That

@@ -69,11 +69,14 @@ def test_noise_directories_are_skipped(tmp_path):
     assert [p.name for p in iter_files(tmp_path)] == ["app.py"]
 
 
-def test_unparseable_file_is_skipped_not_fatal(tmp_path):
-    (tmp_path / "broken.py").write_text("def oops(:\n")
+def test_unparseable_file_is_mapped_as_far_as_possible(tmp_path):
+    """tree-sitter recovers from syntax errors: a broken file is not fatal, and the
+    parts that do parse still reach the map."""
+    (tmp_path / "broken.py").write_text("def oops(:\n    pass\n\ndef later():\n    run()\n")
     (tmp_path / "fine.py").write_text("def ok():\n    pass\n")
     repository = load_source(None, str(tmp_path), Settings())
 
     code_map = analyze(repository)
 
-    assert "fine.py" in code_map.files and "broken.py" not in code_map.files
+    assert "ok" in code_map.symbol_index
+    assert code_map.symbol_index["later"] == ["broken.py"]

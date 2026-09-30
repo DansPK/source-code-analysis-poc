@@ -9,8 +9,8 @@ file, then stop.** Do not start the next milestone in the same session.
 
 ## Status
 
-- **All milestones complete (M0–M9).** The POC pipeline works end to end; M9 added an MCP
-  server for the VS Code extension.
+- **All milestones complete (M0–M10).** The POC pipeline works end to end; M9 added an MCP
+  server for the VS Code extension; M10 made the code map and rules multi-language.
 - Last updated: 2026-09-30 by Claude Opus 5.5 (Claude Code)
 
 ## Done
@@ -37,6 +37,18 @@ file, then stop.** Do not start the next milestone in the same session.
   chose Streamable HTTP. Verified: `uv run pytest` → 107 passed (`tests/test_mcp.py` uses the
   SDK's in-memory session); live `tools/list` and a bad-path `tools/call` via curl against
   `uv run scan-mcp` returned the two tools and an `isError` result.
+
+- **M10 — Multi-language.** `repository/code_map.py` now parses with tree-sitter
+  (`tree-sitter-language-pack`, pinned `<1`) instead of stdlib `ast`: one shared walk over a
+  per-language table of node types, for Python, Java, JS/TS, Go, PHP, C#, Ruby, Kotlin, Scala,
+  Swift, Rust, C, C++. `CodeMap`/`FileNode`/`Symbol` and everything in `context/` are
+  unchanged. `language_detector.FRAMEWORKS` maps import prefixes to frameworks for each
+  ecosystem. New rules `java-sqli-concat`, `javascript-sqli-concat` with ground-truth fixtures
+  `tests/vulnerable_samples/spring_app` and `express_app` (same route → service → repository
+  shape as the Flask one). Default `semgrep_configs` adds `p/default` and `p/owasp-top-ten`.
+  `SKIP_DIRS` adds build output (`target`, `.gradle`, `obj`, `.next`, …) and coding-agent
+  worktrees (`.claude`, `.kilo`, `.worktrees`). Verified: `uv run pytest` → 123 passed;
+  on a real 420-file Spring project the map builds in ~1.6s and detects Spring.
 
 ## Evaluation against a real model (2026-09-29)
 
@@ -236,6 +248,23 @@ keep this list current as consumers appear.
   switched to stdio, stdout belongs to the protocol — one stray `print` breaks the connection.
 - A tool returning bare `dict` gets **no** `structuredContent` from FastMCP; it has to be
   `dict[str, Any]` (or a model). `ask` is annotated that way for that reason.
+- **`tree-sitter-language-pack` is pinned `<1` on purpose.** 1.x downloads each grammar from
+  the network on first use into `~/.cache` — that breaks "never write outside the checkout"
+  and makes scans need network. 0.13 bundles every grammar in the wheel (~180 MB installed).
+  In 0.x the C# grammar is `csharp`, not `c_sharp`.
+- tree-sitter never fails on a syntax error, it recovers; a broken file is mapped as far as it
+  parses rather than skipped (`test_unparseable_file_is_mapped_as_far_as_possible`).
+- Unnamed JS functions (Express callbacks) are recorded as `<anonymous>`, so a sink inside a
+  handler still has an enclosing function. The name can never match a call, so it never
+  creates a false caller.
+- Framework prefixes must match only request-handling code. `org.springframework` would make
+  every `@Repository` an entry point, and the context walk stops at entry points — so the
+  Spring prefix is `org.springframework.web`.
+- Semgrep generic method names make noisy sinks: `.get()`/`.update()` matched Maps, Headers,
+  Express routers and `MessageDigest`. The Java rule uses typed patterns
+  (`(JdbcTemplate $J).update(...)`) for those. Check a new rule against safe code too.
+- Running Semgrep by hand on `tests/vulnerable_samples` needs `--no-git-ignore
+  --x-ignore-semgrepignore-files`, or its built-in ignore of `tests/` returns 0 results.
 
 ## Next milestones
 

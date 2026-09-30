@@ -1,0 +1,25 @@
+rules:
+  - id: javascript-sqli-concat
+    mode: taint
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      A SQL statement built by string concatenation or a template literal reaches a
+      database query call. If any part of that string is attacker-controlled the query can
+      be rewritten. Pass values as query parameters (`?` / `$1` placeholders) instead.
+    metadata:
+      category: security
+      cwe: "CWE-89: SQL Injection"
+      vulnerability_type: SQL Injection
+    pattern-sources:
+      - pattern: '"..." + $X'
+      - pattern: '$X + "..."'
+      - pattern: "`...${$X}...`"
+    pattern-sinks:
+      # mysql / mysql2 / pg, Knex and Prisma escape hatches. Not get()/all()/run(): those
+      # names are shared by Maps, Headers and Express routers.
+      - pattern: $DB.query(...)
+      - pattern: $DB.execute(...)
+      - pattern: $DB.raw(...)
+      - pattern: $DB.$queryRawUnsafe(...)
+      - pattern: $DB.$executeRawUnsafe(...)

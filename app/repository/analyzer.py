@@ -35,16 +35,15 @@ def analyze(repository: Repository) -> CodeMap:
         {f.language for f in repository.files if f.language != "unknown"}
     )
 
-    python_files = [f.path for f in repository.files if f.language == "python"]
-    code_map = build_code_map(root, python_files)
+    code_map = build_code_map(root, repository.files)
 
     repository.frameworks = detect_frameworks(code_map.files)
     repository.entry_points = detect_entry_points(code_map.files)
 
     logger.info(
-        "Analyzed %d files (%d Python), frameworks=%s, entry points=%d",
+        "Analyzed %d files (%d parsed), frameworks=%s, entry points=%d",
         len(repository.files),
-        len(python_files),
+        len(code_map.files),
         repository.frameworks or "none",
         len(repository.entry_points),
     )

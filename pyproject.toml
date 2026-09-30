@@ -15,6 +15,7 @@ dependencies = [
     "uvicorn>=0.30",
     "textual>=8.2.8",
     "mcp>=1.29.0",
+    "tree-sitter-language-pack<1",
 ]
 
 [project.scripts]

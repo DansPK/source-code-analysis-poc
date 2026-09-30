@@ -6,6 +6,10 @@ from pathlib import Path
 SKIP_DIRS = {
     ".git", ".venv", "venv", "node_modules", "vendor", "dist", "build",
     ".cache", "__pycache__", ".pytest_cache", ".idea", ".mypy_cache",
+    # Build output of other ecosystems: Maven/Gradle, .NET, JS frameworks, test coverage.
+    "target", ".gradle", "obj", ".next", ".nuxt", "coverage", ".terraform",
+    # Coding agents keep whole copies of the project here; scanning them doubles every finding.
+    ".claude", ".kilo", ".worktrees",
 }
 MAX_FILE_BYTES = 1_000_000  # generated or vendored blobs, not hand-written source
 

@@ -73,6 +73,8 @@ def parse_semgrep(payload: dict, root: Path) -> list[Finding]:
         )
 
     for error in payload.get("errors", []):
-        logger.warning("Semgrep: %s", error.get("message", error))
+        # Some messages embed the whole file Semgrep failed on; the first line says enough.
+        message = str(error.get("message", error)).strip().splitlines()
+        logger.warning("Semgrep: %s", message[0] if message else error)
 
     return findings

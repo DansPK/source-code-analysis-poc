@@ -216,11 +216,19 @@ in [`HANDOFF.md`](HANDOFF.md).
 
 The pipeline is complete. Its detection coverage is not.
 
-- Detection is multi-language, cross-file analysis is not. Semgrep's registry rulesets
-  (`p/security-audit`, `p/secrets`) cover every language Semgrep supports, so findings are
-  reported for Java, JavaScript, Go and the rest. The code map is Python-only, so only Python
-  findings get callers, callees and a flow chain; other languages are analyzed with the code
-  around the finding alone.
+- Detection and cross-file analysis are multi-language. Semgrep's registry rulesets
+  (`p/security-audit`, `p/default`, `p/owasp-top-ten`, `p/secrets`) cover every language
+  Semgrep supports, and our own rules cover string-built SQL in Python, Java and
+  JavaScript/TypeScript. The code map (tree-sitter) covers Python, Java, JavaScript,
+  TypeScript, Go, PHP, C#, Ruby, Kotlin, Scala, Swift, Rust, C and C++, so findings in those
+  languages get callers, callees and a flow chain. Entry points are recognized for the common
+  web frameworks of each (Flask/Django/FastAPI, Spring/JAX-RS/servlets, Express/Koa/Fastify/
+  NestJS, Gin/Echo/Fiber/net/http, Laravel/Symfony, ASP.NET, Sinatra, Actix/Axum/Rocket, Ktor).
+  Anything else (shell, Terraform, YAML workflows) is analyzed with the code around the
+  finding alone.
+- If the rulesets report nothing, the AI never sees the project: a scan with 0 candidates is
+  "no known pattern matched", not "no vulnerabilities". Use `ask` for logic flaws such as
+  missing authorization.
 - Symbol resolution is name-based, without type inference or scope analysis. Call sites are
   located by searching function source text, so a name in a comment can produce an incorrect
   caller. The result is irrelevant context rather than an incorrect verdict.
