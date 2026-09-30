@@ -3,6 +3,9 @@
 A proof of concept that combines static analysis with an LLM to find and explain
 vulnerabilities in a source project.
 
+> **Use it from VS Code:** [Nokran](https://github.com/DansPK/nokran-poc) is a chat extension
+> that talks to this project's MCP server. See [Trying it with Nokran](#trying-it-with-nokran).
+
 ## Overview
 
 Static analysis reports where suspicious code is, not whether it matters. A
@@ -161,6 +164,37 @@ receives:
 
 The final result is the same with or without streaming; a client that asks for no progress
 gets none.
+
+### Trying it with Nokran
+
+[Nokran](https://github.com/DansPK/nokran-poc) is the VS Code extension built for this server.
+It gives you a chat panel where you can scan a folder or file, ask questions, and watch the
+findings and answers stream in. To test the two together:
+
+1. Start this server with an API key:
+   ```bash
+   uv sync
+   echo "MCP_API_KEY=$(openssl rand -hex 32)" >> .env   # plus LLM_API_KEY, see Installation
+   uv run scan-mcp
+   ```
+2. Build and install Nokran:
+   ```bash
+   git clone https://github.com/DansPK/nokran-poc.git
+   cd nokran-poc
+   npm install
+   npm run package
+   code --install-extension nokran-*.vsix
+   ```
+3. In VS Code settings, search for **Nokran** and paste the `MCP_API_KEY` value into
+   **Api Key**. Leave **Mcp Base Url** at `http://127.0.0.1:8001/mcp` and **Source Mode** at
+   `path`.
+4. Open `tests/vulnerable_samples/flask_app` (or `spring_app`, `express_app`) from this repo,
+   click the Nokran icon, and type `scan this code for me`. You should see a SQL injection
+   marked **Likely Vulnerable**, with its explanation and fix written out live.
+5. Ask a follow-up, for example `where does user input reach the database?`.
+
+Nokran's own documentation covers the settings, the `git` and `upload` modes for a server on
+another machine, and troubleshooting.
 
 ### Asking questions
 
