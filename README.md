@@ -152,10 +152,12 @@ receives:
 
 | Tool | Event |
 | --- | --- |
-| `scan` | `{"type": "finding", "total": <candidates>, "item": <report item>}` as each finding is judged |
+| `scan` | `{"type": "analysis", "number", "total", "finding", "analysis"}` when a finding's verdict is in |
+| `scan` | `{"type": "finding_text", "number", "field", "text"}` as its `explanation` and `suggested_fix` are written |
+| `scan` | `{"type": "finding", "number", "total", "item": <report item>}` when the finding is complete |
 | `ask` | `{"type": "step", "tool", "args", "why"}` as the agent uses a tool |
 | `ask` | `{"type": "token", "text"}` for each piece of the answer as the model writes it |
-| both | `{"type": "log", "text"}` for each pipeline log line, for clients that cannot see stderr |
+| both | `{"type": "log", "level", "text"}` for each pipeline log line, for clients that cannot see stderr |
 
 The final result is the same with or without streaming; a client that asks for no progress
 gets none.

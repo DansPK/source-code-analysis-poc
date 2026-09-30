@@ -18,7 +18,7 @@ from app.config.settings import Settings, get_settings
 from app.context.builder import build_context
 from app.findings.deduplicator import deduplicate
 from app.findings.parser import parse_semgrep
-from app.models import ReportItem, ScanReport
+from app.models import AIAnalysis, Finding, ReportItem, ScanReport
 from app.report import reporter
 from app.repository.analyzer import analyze
 from app.scanners import ScannerError
@@ -34,7 +34,9 @@ def run_scan(
     repo: str | None,
     path: str | None,
     settings: Settings,
-    on_item: Callable[[ReportItem, int], None] | None = None,
+    on_analysis: Callable[[int, int, Finding, AIAnalysis], None] | None = None,
+    on_text: Callable[[int, str, str], None] | None = None,
+    on_item: Callable[[int, int, ReportItem], None] | None = None,
     *,
     branch: str | None = None,
     archive: str | None = None,
@@ -42,8 +44,10 @@ def run_scan(
 ) -> ScanReport:
     """Run the full pipeline. The stage order is the spec's, and stays visible here.
 
-    `on_item` receives each finding as soon as it is judged, with the number of
-    candidates, so the MCP server can stream results during a scan that takes minutes.
+    The callbacks let the MCP server stream a scan that takes minutes. Each gets the
+    finding's number (1-based, as in VULN-001): `on_analysis(number, total, finding,
+    analysis)` once the verdict is in, `on_text(number, field, text)` as the explanation
+    and suggested fix are written, and `on_item(number, total, item)` when it is complete.
     `branch`, `archive` and `subpath` are passed to `load_source()`.
     """
     repository = load_source(
@@ -62,13 +66,16 @@ def run_scan(
     for number, finding in enumerate(findings, start=1):
         context = build_context(repository, code_map, finding, settings)
         analysis = validate(analyze_finding(client, context, repository), context, repository)
-        items.append(report_item(client, number, context, analysis))
+        if on_analysis:
+            on_analysis(number, len(findings), finding, analysis)
+        text = (lambda field, piece, n=number: on_text(n, field, piece)) if on_text else None
+        items.append(report_item(client, number, context, analysis, text))
         logger.info(
             "  %s: %s (%s severity, %s confidence)",
             items[-1].id, analysis.status, analysis.severity, analysis.confidence,
         )
         if on_item:
-            on_item(items[-1], len(findings))
+            on_item(number, len(findings), items[-1])
 
     return ScanReport(
         repository_root=repository.root,

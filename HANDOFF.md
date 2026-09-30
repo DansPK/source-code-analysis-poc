@@ -9,10 +9,11 @@ file, then stop.** Do not start the next milestone in the same session.
 
 ## Status
 
-- **All milestones complete (M0–M12).** The POC pipeline works end to end; M9 added an MCP
+- **All milestones complete (M0–M13).** The POC pipeline works end to end; M9 added an MCP
   server for the VS Code extension; M10 made the code map and rules multi-language; M11
   streams scan findings and ask answers over MCP; M12 lets remote clients use the MCP server
-  (API key, Git branch and uploaded-archive sources).
+  (API key, Git branch and uploaded-archive sources); M13 streams each finding's verdict and
+  its explanation and fix as they are written.
 - Last updated: 2026-09-30 by Claude Opus 5.5 (Claude Code)
 
 ## Done
@@ -69,6 +70,15 @@ file, then stop.** Do not start the next milestone in the same session.
   extension, which is now a pure MCP client (URL + key). Verified: `uv run pytest` → 143 passed;
   live with a key: no/wrong key → 401, and the same Spring fixture scanned via upload and via a
   GitHub clone gave identical findings.
+
+- **M13 — Streaming a scan's prose.** `ask`'s answer-streaming parser moved to
+  `ai/json_stream.py` as `FieldStream(field)` + `complete_streaming()`, now also used by
+  `explain()` and `recommend_fix()` (optional `on_text`). `run_scan()` callbacks are
+  `on_analysis(number, total, finding, analysis)`, `on_text(number, field, text)` and
+  `on_item(number, total, item)`; the MCP server emits them as `analysis`, `finding_text` and
+  `finding` events, and `log` events carry a `level`. Verified: `uv run pytest` → 148 passed;
+  live, per finding: verdict at ~15s, explanation then fix typed out, streamed text identical
+  to the final report.
 
 ## Evaluation against a real model (2026-09-29)
 

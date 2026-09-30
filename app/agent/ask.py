@@ -9,11 +9,11 @@ OpenAI-compatible provider and needs no vendor-specific tool-calling support.
 """
 
 import json
-import re
 from collections.abc import Callable
 
 from app.ai import AIError
 from app.ai.client import LLMClient
+from app.ai.json_stream import complete_streaming
 from app.agent.tools import DESCRIPTIONS, TOOLS
 from app.config.settings import Settings, get_settings
 from app.models import CodeMap, Repository
@@ -23,55 +23,6 @@ logger = get_logger(__name__)
 
 MAX_STEPS = 20
 
-
-class AnswerStream:
-    """Pull the `answer` field out of a JSON reply while it is still arriving.
-
-    The model replies with one JSON object, so a UI cannot simply print the stream.
-    This tracks the point where the answer string starts and decodes it as it comes,
-    which is enough to show prose appearing live. A tool call has no answer field, so
-    nothing is emitted for it.
-    """
-
-    def __init__(self):
-        self._raw = ""
-        self._start = -1   # index just after the opening quote of the answer value
-        self._emitted = 0
-
-    def feed(self, chunk: str) -> str:
-        """Return whatever new answer text this chunk completed."""
-        self._raw += chunk
-        if self._start < 0:
-            match = re.search(r'"answer"\s*:\s*"', self._raw)
-            if not match:
-                return ""
-            self._start = match.end()
-
-        body = self._raw[self._start :]
-        # Stop at the closing quote, ignoring escaped ones.
-        end = 0
-        while end < len(body):
-            if body[end] == "\\":
-                end += 2
-                continue
-            if body[end] == '"':
-                break
-            end += 1
-        complete = body[:end]
-
-        # Decode only up to the last complete escape, so a split "\u00e9" is not mangled.
-        safe = complete
-        for trailing in range(1, min(6, len(safe)) + 1):
-            if "\\" in safe[-trailing:]:
-                safe = safe[:-trailing]
-                break
-        try:
-            text = json.loads(f'"{safe}"')
-        except json.JSONDecodeError:
-            return ""
-
-        new, self._emitted = text[self._emitted :], len(text)
-        return new
 
 SYSTEM_PROMPT = f"""You are a security engineer answering questions about a codebase you \
 can explore one step at a time.
@@ -127,7 +78,7 @@ def ask(
         if step == max_steps - 1:
             prompt += LAST_STEP
         try:
-            reply = _complete(client, prompt, on_token)
+            reply = complete_streaming(client, SYSTEM_PROMPT, prompt, "answer", on_token)
         except AIError as exc:
             return f"The model could not be reached: {exc}", history
 
@@ -151,21 +102,3 @@ def ask(
         history.append(f"CALLED {name}({json.dumps(args)}):\n{result}")
 
     return "I could not reach an answer within the step limit.", history
-
-
-def _complete(client: LLMClient, prompt: str, on_token: Callable[[str], None] | None) -> dict:
-    """One model call, streamed when the caller wants tokens and the client can."""
-    if on_token is None or not hasattr(client, "stream_json"):
-        return client.complete_json(SYSTEM_PROMPT, prompt)
-
-    raw, answer = "", AnswerStream()
-    for chunk in client.stream_json(SYSTEM_PROMPT, prompt):
-        raw += chunk
-        text = answer.feed(chunk)
-        if text:
-            on_token(text)
-
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError as exc:
-        raise AIError(f"Model did not return JSON: {raw[:200]}") from exc

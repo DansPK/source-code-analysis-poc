@@ -84,7 +84,7 @@ class StreamingStubClient(StubClient):
     """Streams its reply in small pieces, as the real client does."""
 
     def stream_json(self, system, user):
-        text = json.dumps({"answer": STUB_REPLY["answer"]})
+        text = json.dumps(STUB_REPLY)
         for start in range(0, len(text), 7):
             yield text[start : start + 7]
 
@@ -185,3 +185,21 @@ async def test_api_key_is_required_when_configured():
     assert await _asgi_status(guarded, []) == 401
     assert await _asgi_status(guarded, [(b"authorization", b"Bearer wrong")]) == 401
     assert await _asgi_status(guarded, [(b"authorization", b"Bearer s3cret")]) == 200
+
+
+async def test_scan_streams_verdict_then_text_then_item_per_finding(monkeypatch):
+    """The card can appear with its verdict, then type out its explanation and fix."""
+    monkeypatch.setattr("app.main.get_client", lambda settings: StreamingStubClient())
+
+    result, events = await call_streaming("scan", path=SAMPLE)
+
+    for item in result.structuredContent["items"]:
+        number = int(item["id"].removeprefix("VULN-"))
+        mine = [e for e in events if e.get("number") == number]
+        kinds = [e["type"] for e in mine]
+        assert kinds[0] == "analysis" and kinds[-1] == "finding"
+        assert mine[0]["analysis"]["status"] == item["analysis"]["status"]
+        for field in ("explanation", "suggested_fix"):
+            pieces = [e["text"] for e in mine if e["type"] == "finding_text" and e["field"] == field]
+            assert len(pieces) > 1
+            assert "".join(pieces).strip() == item[field]

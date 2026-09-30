@@ -78,7 +78,7 @@ class _LogForwarder(logging.Handler):
 
     def emit(self, record: logging.LogRecord) -> None:
         if record.thread == self.thread:
-            self.send_event({"type": "log", "text": record.getMessage()})
+            self.send_event({"type": "log", "level": record.levelname.lower(), "text": record.getMessage()})
 
 
 async def _stream(ctx: Context, work: Callable[[Callable[[dict], None]], Any]) -> Any:
@@ -114,16 +114,29 @@ async def scan(
     with exactly one of: `path` (absolute, on this server), `repo` (Git URL, optionally
     with `branch`) or `archive` (base64 zip); `subpath` narrows a repo or archive to one
     folder or file. A scan runs Semgrep and an LLM call per finding, so it can take
-    several minutes. Streams `{"type": "finding", "total", "item"}` as each finding is
-    judged and `{"type": "log", "text"}` for pipeline progress."""
+    several minutes. Streams, per finding `number`: `{"type": "analysis", "number",
+    "total", "finding", "analysis"}` when its verdict is in, `{"type": "finding_text",
+    "number", "field", "text"}` as its explanation and suggested fix are written, and
+    `{"type": "finding", "number", "total", "item"}` when it is complete; plus
+    `{"type": "log", "level", "text"}` for pipeline progress."""
     source = _source(path, repo, branch, archive, subpath)
 
     def work(emit: Callable[[dict], None]) -> ScanReport:
-        def on_item(item, total):
-            emit({"type": "finding", "total": total, "item": item.model_dump(mode="json")})
+        def on_analysis(number, total, finding, analysis):
+            emit({
+                "type": "analysis", "number": number, "total": total,
+                "finding": finding.model_dump(mode="json"), "analysis": analysis.model_dump(mode="json"),
+            })
+
+        def on_text(number, field, text):
+            emit({"type": "finding_text", "number": number, "field": field, "text": text})
+
+        def on_item(number, total, item):
+            emit({"type": "finding", "number": number, "total": total, "item": item.model_dump(mode="json")})
 
         return run_scan(
-            source["repo"], source["path"], get_settings(), on_item=on_item,
+            source["repo"], source["path"], get_settings(),
+            on_analysis=on_analysis, on_text=on_text, on_item=on_item,
             branch=branch, archive=archive, subpath=subpath,
         )
 
