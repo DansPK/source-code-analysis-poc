@@ -9,8 +9,9 @@ file, then stop.** Do not start the next milestone in the same session.
 
 ## Status
 
-- **All milestones complete (M0–M8).** The POC pipeline works end to end.
-- Last updated: 2026-09-29 by Claude Opus 5 (Claude Code)
+- **All milestones complete (M0–M9).** The POC pipeline works end to end; M9 added an MCP
+  server for the VS Code extension.
+- Last updated: 2026-09-30 by Claude Opus 5.5 (Claude Code)
 
 ## Done
 
@@ -29,6 +30,13 @@ file, then stop.** Do not start the next milestone in the same session.
   `root`. Shallow clone into `Settings.temp_dir`, replacing any previous clone. Failures raise
   `SourceError` (CLI exit 2). Verified: `uv run pytest` → 18 passed, including a real clone of
   a repo the test creates on disk; `uv run scan --repo https://github.com/octocat/Hello-World.git`.
+- **M9 — MCP server.** `app/mcp_server.py` (`scan-mcp`) exposes `scan` (→ `run_scan()`) and
+  `ask` (→ `agent.ask.ask()`, returning `answer` + `transcript`) over **Streamable HTTP** at
+  `http://127.0.0.1:8001/mcp`, stateless. New setting `mcp_port` (8001, so `scan-api` on 8000
+  can run alongside). Deviation from `IMPLEMENT_MCP_SERVER.md`: the spec said stdio; the user
+  chose Streamable HTTP. Verified: `uv run pytest` → 107 passed (`tests/test_mcp.py` uses the
+  SDK's in-memory session); live `tools/list` and a bad-path `tools/call` via curl against
+  `uv run scan-mcp` returned the two tools and an `isError` result.
 
 ## Evaluation against a real model (2026-09-29)
 
@@ -219,16 +227,16 @@ keep this list current as consumers appear.
   symbol) belongs in M5's `symbol_resolver.py` and `call_graph.py`, which exist for exactly
   that. An earlier pass put those helpers on the models; they were removed. Do not put them
   back — logic on the contract makes the contract hard to freeze.
+- **MCP tools are synchronous** (AGENTS.md: no async). A running scan blocks the server's event
+  loop, so every other MCP request waits until it finishes. Fine for one extension client; if
+  the extension needs `ask` during a scan, that is the point to change it.
+- MCP `ask` never returns an error result for a model failure: `agent.ask.ask()` turns
+  `AIError` into the answer text. Source errors (bad path) do surface as `isError`.
+- Keep stdout clean in the MCP path anyway: logs go to stderr, and if the transport is ever
+  switched to stdio, stdout belongs to the protocol — one stray `print` breaks the connection.
+- A tool returning bare `dict` gets **no** `structuredContent` from FastMCP; it has to be
+  `dict[str, Any]` (or a model). `ask` is annotated that way for that reason.
 
 ## Next milestones
 
-- **M2** — Source manager: local + Git loaders converging on one pipeline entry.
-- **M3** — Repository analyzer and `ast`-based code map (Python only).
-- **M4** — Semgrep scanner, finding parser (the Semgrep isolation boundary), deduplicator.
-- **M5** — Cross-file context investigator, bounded by `Settings` depths. The core feature.
-- **M6** — AI analyzer + validator, with `MockClient` so tests need no API key.
-- **M7** — Agent (explain + recommend) and report engine; wire `run_scan()`.
-- **M8** — FastAPI layer over `run_scan()`.
-
-Full detail for each is in the approved plan:
-`~/.claude/plans/ai-source-code-vulnerability-scanner-po-scalable-whale.md`.
+None planned. See "In progress" for the most valuable directions.

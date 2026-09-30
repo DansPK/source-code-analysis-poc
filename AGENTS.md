@@ -86,6 +86,7 @@ uv sync                                          # install from pyproject.toml
 uv add <pkg>                                     # add a dependency
 uv run scan --path <dir>                         # run the CLI pipeline
 uv run scan-api                                  # run the FastAPI layer (docs at /docs)
+uv run scan-mcp                                  # run the MCP server (http://127.0.0.1:8001/mcp)
 uv run pytest                                    # whole test suite
 uv run pytest tests/test_context.py              # one file
 uv run pytest tests/test_context.py::test_name   # one test
@@ -116,8 +117,9 @@ Key invariants that span multiple modules:
 - **The AI Analyzer returns structured data**, not prose (`vulnerability_type, status, severity, confidence, source, source_file, sink, sink_file, data_flow, evidence, protection_found, impact`). Prose is generated later, by `agent/`.
 - **The Validator preserves uncertainty.** Statuses are `Likely Vulnerable`, `Possible Vulnerability`, `Likely False Positive`, `Needs Manual Review`; confidence is `High`/`Medium`/`Low`. Uncertain analysis must never be reported as confirmed.
 - **The Agent recommends, it does not patch.** Automatic code modification is explicitly out of scope for the POC (section 17).
-- **`run_scan()` in `app/main.py` is the only pipeline entry point.** The CLI and the FastAPI
-  layer (`app/api/`) are thin adapters over it. No pipeline logic belongs in either adapter.
+- **`run_scan()` in `app/main.py` is the only pipeline entry point.** The CLI, the FastAPI
+  layer (`app/api/`) and the MCP server (`app/mcp_server.py`) are thin adapters over it. No
+  pipeline logic belongs in any adapter.
 - **The LLM backend is provider-agnostic.** Everything goes through the `LLMClient` protocol in
   `ai/client.py` (any OpenAI-compatible `base_url`). No module may import a vendor
   SDK directly.

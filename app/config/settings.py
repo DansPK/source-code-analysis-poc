@@ -41,6 +41,7 @@ class Settings(BaseSettings):
 
     api_host: str = "127.0.0.1"
     api_port: int = 8000
+    mcp_port: int = 8001  # scan-mcp; differs from api_port so both can run at once
 
 
 def get_settings() -> Settings:

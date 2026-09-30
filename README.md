@@ -117,6 +117,20 @@ curl -X POST localhost:8000/scan -H 'content-type: application/json' \
      -d '{"path": "/path/to/project"}'
 ```
 
+### MCP server
+
+`scan-mcp` serves the same pipeline over MCP (Streamable HTTP), for editor integrations such
+as the VS Code extension. It exposes two tools: `scan` (a folder or file path, returns the full
+report) and `ask` (a project path and a question; pass back the returned `transcript` for a
+follow-up).
+
+```bash
+uv run scan-mcp                               # http://127.0.0.1:8001/mcp (MCP_PORT to change)
+uv run --directory /path/to/this/repo scan-mcp   # from anywhere, using this repo's .venv and .env
+```
+
+Paths must be absolute. Logs go to stderr.
+
 ### Asking questions
 
 `ask` answers questions about a project instead of scanning it. The model explores the code
