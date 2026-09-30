@@ -1,12 +1,16 @@
 """M9: the MCP server. Like the HTTP layer, it must add nothing but transport."""
 
+import base64
+import io
 import json
+import logging
+import zipfile
 from pathlib import Path
 
 import pytest
 from mcp.shared.memory import create_connected_server_and_client_session
 
-from app.mcp_server import server
+from app.mcp_server import require_api_key, server
 
 SAMPLE = str(Path("tests/vulnerable_samples/flask_app").resolve())
 
@@ -100,16 +104,17 @@ async def call_streaming(tool, **arguments):
 async def test_context_is_not_a_tool_argument():
     async with create_connected_server_and_client_session(server) as session:
         tools = {t.name: t for t in (await session.list_tools()).tools}
-    assert set(tools["scan"].inputSchema["properties"]) == {"path"}
-    assert set(tools["ask"].inputSchema["properties"]) == {"path", "question", "transcript"}
+    assert set(tools["scan"].inputSchema["properties"]) == {"path", "repo", "branch", "archive", "subpath"}
+    assert set(tools["ask"].inputSchema["properties"]) == {"question", "path", "repo", "branch", "archive", "transcript"}
 
 
 async def test_scan_streams_each_finding_before_the_report():
     result, events = await call_streaming("scan", path=SAMPLE)
 
-    assert [e["type"] for e in events] == ["finding"] * result.structuredContent["candidates_found"]
-    assert events[0]["total"] == result.structuredContent["candidates_found"]
-    streamed = {e["item"]["id"] for e in events}
+    findings = [e for e in events if e["type"] == "finding"]
+    assert len(findings) == result.structuredContent["candidates_found"]
+    assert findings[0]["total"] == result.structuredContent["candidates_found"]
+    streamed = {e["item"]["id"] for e in findings}
     assert streamed == {i["id"] for i in result.structuredContent["items"]}
 
 
@@ -121,3 +126,62 @@ async def test_ask_streams_the_answer_as_it_is_written(monkeypatch):
     tokens = [e["text"] for e in events if e["type"] == "token"]
     assert len(tokens) > 1
     assert "".join(tokens) == result.structuredContent["answer"]
+
+
+async def test_scan_streams_the_pipeline_log_a_remote_client_cannot_see(caplog):
+    caplog.set_level(logging.INFO)  # as app/utils/logging.py configures it outside pytest
+    _, events = await call_streaming("scan", path=SAMPLE)
+
+    logs = [e["text"] for e in events if e["type"] == "log"]
+    assert any(line.startswith("Running Semgrep") for line in logs)
+    assert any(line.startswith("Candidate findings") for line in logs)
+
+
+async def test_scan_an_uploaded_archive():
+    """What a client on another machine does: send the project instead of a path."""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as zf:
+        for file in Path(SAMPLE).rglob("*.py"):
+            zf.write(file, file.relative_to(SAMPLE))
+    archive = base64.b64encode(buffer.getvalue()).decode()
+
+    result = await call("scan", archive=archive)
+
+    assert not result.isError
+    assert any(i["finding"]["file"] == "database/user_repository.py" for i in result.structuredContent["items"])
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [{}, {"path": SAMPLE, "repo": "https://example.com/x.git"}, {"repo": "file:///etc"}, {"repo": "/etc"}],
+)
+async def test_source_must_be_named_exactly_once_and_safely(arguments):
+    result = await call("scan", **arguments)
+    assert result.isError
+
+
+async def _asgi_status(app, headers):
+    """Send one GET through an ASGI app and return the response status."""
+    sent = []
+
+    async def receive():
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    async def send(message):
+        sent.append(message)
+
+    scope = {"type": "http", "method": "GET", "path": "/mcp", "headers": headers, "query_string": b""}
+    await app(scope, receive, send)
+    return sent[0]["status"]
+
+
+async def test_api_key_is_required_when_configured():
+    async def inner(scope, receive, send):
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        await send({"type": "http.response.body", "body": b"ok"})
+
+    guarded = require_api_key(inner, "s3cret")
+
+    assert await _asgi_status(guarded, []) == 401
+    assert await _asgi_status(guarded, [(b"authorization", b"Bearer wrong")]) == 401
+    assert await _asgi_status(guarded, [(b"authorization", b"Bearer s3cret")]) == 200

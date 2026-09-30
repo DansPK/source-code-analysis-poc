@@ -9,9 +9,10 @@ file, then stop.** Do not start the next milestone in the same session.
 
 ## Status
 
-- **All milestones complete (M0–M11).** The POC pipeline works end to end; M9 added an MCP
+- **All milestones complete (M0–M12).** The POC pipeline works end to end; M9 added an MCP
   server for the VS Code extension; M10 made the code map and rules multi-language; M11
-  streams scan findings and ask answers over MCP.
+  streams scan findings and ask answers over MCP; M12 lets remote clients use the MCP server
+  (API key, Git branch and uploaded-archive sources).
 - Last updated: 2026-09-30 by Claude Opus 5.5 (Claude Code)
 
 ## Done
@@ -59,6 +60,15 @@ file, then stop.** Do not start the next milestone in the same session.
   `test_scan_streams_each_finding_before_the_report`, `test_ask_streams_the_answer_as_it_is_written`,
   `test_context_is_not_a_tool_argument`); live against a real model via the VS Code extension's
   client, the first finding arrived ~11s before the report and 91 answer pieces streamed.
+
+- **M12 — Remote MCP clients.** The MCP tools take `path`, `repo` + `branch`, or `archive`
+  (base64 zip) plus `subpath`, all converging in `load_source()` (new `source/archive_loader.py`;
+  `git_loader.clone()` takes a branch). `MCP_API_KEY` guards the server with a Bearer token (plain
+  ASGI wrapper `require_api_key`); `MCP_HOST` lets it serve other machines; `MAX_UPLOAD_MB` caps
+  uploads. Pipeline log lines stream to the client as `log` events. Built for the Nokran VS Code
+  extension, which is now a pure MCP client (URL + key). Verified: `uv run pytest` → 143 passed;
+  live with a key: no/wrong key → 401, and the same Spring fixture scanned via upload and via a
+  GitHub clone gave identical findings.
 
 ## Evaluation against a real model (2026-09-29)
 
@@ -285,6 +295,18 @@ keep this list current as consumers appear.
   numbers mean nothing else. Without a client progress token `report_progress` is a no-op.
 - Passing `on_step` to `ask()` replaces its `step N:` log line, so stderr no longer shows ask
   steps when called over MCP; the step events carry them instead.
+
+- **Remote clients can make the server read and clone things (M12).** `path` accepts any
+  directory the server process can read, and `repo` any https/ssh URL it can reach. That is the
+  point for trusted clients, and why `MCP_API_KEY` must be set whenever `MCP_HOST` is not
+  loopback. `file://` and bare paths are refused as `repo` so it cannot be used to read local
+  directories that `path` would not name explicitly anyway.
+- Uploads and clones accumulate in `workspace/projects/` — nothing deletes them.
+- FastMCP enables DNS-rebinding protection only when its host is loopback; with
+  `MCP_HOST=0.0.0.0` it accepts any Host header. `server.run()` is not used: `main()` builds
+  `streamable_http_app()` itself so it can wrap it with the API-key check, then runs uvicorn.
+- Under pytest the root logger stays at WARNING, so INFO records (and therefore `log` events)
+  are not created unless a test sets `caplog.set_level(logging.INFO)`.
 
 ## Next milestones
 

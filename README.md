@@ -129,7 +129,22 @@ uv run scan-mcp                               # http://127.0.0.1:8001/mcp (MCP_P
 uv run --directory /path/to/this/repo scan-mcp   # from anywhere, using this repo's .venv and .env
 ```
 
-Paths must be absolute. Logs go to stderr.
+A client names the code in one of three ways, so the server does not have to share a disk
+with it:
+
+| Argument | Meaning |
+| --- | --- |
+| `path` | An absolute folder or file path **on the server**. |
+| `repo` (+ `branch`) | A Git URL the server clones (`https://`, `ssh://` or `git@` only). |
+| `archive` | A base64 zip of the project, uploaded by the client (at most `MAX_UPLOAD_MB`, default 100). |
+
+`subpath` narrows a clone or an archive to one folder or file. Clones and uploads land in
+`workspace/projects/` (uploads under `uploads/<hash>`, reused when the same archive is sent again).
+
+Set `MCP_API_KEY` in `.env` and every request must carry `Authorization: Bearer <key>`;
+without it the server warns at startup and accepts anyone who can reach it. To serve other
+machines set `MCP_HOST=0.0.0.0` — and then always set `MCP_API_KEY`. Logs go to stderr, and are
+also streamed to the client (below).
 
 Both tools stream while they run, as MCP progress notifications whose `message` is one JSON
 event. A client that sends a progress token (in the TypeScript SDK, by passing `onprogress`)
@@ -140,6 +155,7 @@ receives:
 | `scan` | `{"type": "finding", "total": <candidates>, "item": <report item>}` as each finding is judged |
 | `ask` | `{"type": "step", "tool", "args", "why"}` as the agent uses a tool |
 | `ask` | `{"type": "token", "text"}` for each piece of the answer as the model writes it |
+| both | `{"type": "log", "text"}` for each pipeline log line, for clients that cannot see stderr |
 
 The final result is the same with or without streaming; a client that asks for no progress
 gets none.

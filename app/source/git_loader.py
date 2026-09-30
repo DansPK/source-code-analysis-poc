@@ -17,15 +17,16 @@ def _workspace(url: str, temp_dir: str) -> Path:
     return project_path(temp_dir) / (name or "repo")
 
 
-def clone(url: str, temp_dir: str) -> Repository:
-    """Shallow-clone `url` into `temp_dir`, replacing any previous clone."""
+def clone(url: str, temp_dir: str, branch: str | None = None) -> Repository:
+    """Shallow-clone `url` (its default branch, or `branch`) into `temp_dir`, replacing
+    any previous clone."""
     dest = _workspace(url, temp_dir)
     if dest.exists():
         shutil.rmtree(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
 
     try:
-        Repo.clone_from(url, dest, depth=1)
+        Repo.clone_from(url, dest, depth=1, **({"branch": branch} if branch else {}))
     except GitCommandError as exc:
         # GitPython wraps stderr as "\n  stderr: '...'", so show the git line that matters.
         lines = [line.strip().strip("'") for line in (exc.stderr or "").splitlines() if line.strip()]

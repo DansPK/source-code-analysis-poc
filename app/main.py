@@ -35,13 +35,20 @@ def run_scan(
     path: str | None,
     settings: Settings,
     on_item: Callable[[ReportItem, int], None] | None = None,
+    *,
+    branch: str | None = None,
+    archive: str | None = None,
+    subpath: str | None = None,
 ) -> ScanReport:
     """Run the full pipeline. The stage order is the spec's, and stays visible here.
 
     `on_item` receives each finding as soon as it is judged, with the number of
     candidates, so the MCP server can stream results during a scan that takes minutes.
+    `branch`, `archive` and `subpath` are passed to `load_source()`.
     """
-    repository = load_source(repo, path, settings)
+    repository = load_source(
+        repo, path, settings, branch=branch, archive=archive, subpath=subpath
+    )
     logger.info("Source: %s", repository.root)
 
     code_map = analyze(repository)

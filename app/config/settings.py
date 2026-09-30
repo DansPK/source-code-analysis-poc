@@ -45,7 +45,11 @@ class Settings(BaseSettings):
 
     api_host: str = "127.0.0.1"
     api_port: int = 8000
-    mcp_port: int = 8001  # scan-mcp; differs from api_port so both can run at once
+    # scan-mcp. Set MCP_HOST=0.0.0.0 to serve other machines -- and then set MCP_API_KEY.
+    mcp_host: str = "127.0.0.1"
+    mcp_port: int = 8001  # differs from api_port so both can run at once
+    mcp_api_key: str = ""  # when set, every MCP request needs "Authorization: Bearer <key>"
+    max_upload_mb: int = 100  # largest project archive an MCP client may upload
 
 
 def get_settings() -> Settings:
